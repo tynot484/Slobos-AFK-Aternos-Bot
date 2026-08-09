@@ -6,8 +6,8 @@
     "type": "offline"
   },
   "server": {
-    "ip": "slobtest1.aternos.me",
-    "port": 27586,
+    "ip": "node-de-free-01.tickhosting.com",
+    "port": 50589,
     "version": "",
     "try-creative": false
   },
