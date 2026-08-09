@@ -8,7 +8,7 @@
   "server": {
     "ip": "node-de-free-01.tickhosting.com",
     "port": 50589,
-    "version": false,
+    "version": "1.21.1",
     "try-creative": false
   },
   "position": {
