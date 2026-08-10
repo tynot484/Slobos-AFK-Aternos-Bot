@@ -37,7 +37,7 @@ let aiModel = null;
 if (apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   aiModel = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest", // الموديل المستقر والسريع
+    model: "gemini-3.5-flash-lite", // الموديل المستقر والسريع
     systemInstruction: "أنت مساعد ذكاء اصطناعي ذكي وسريع داخل سيرفر ماينكرافت. أجب بدقة وبشكل مختصر ومباشر ومناسب لشات ماينكرافت."
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
