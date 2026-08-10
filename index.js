@@ -37,13 +37,16 @@ let aiModel = null;
 if (apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   aiModel = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash", // التحديث إلى الموديل المستقر الجديد
+    model: "gemini-2.0-flash", // الموديل المستقر والسريع
     systemInstruction: "أنت مساعد ذكاء اصطناعي ذكي وسريع داخل سيرفر ماينكرافت. أجب بدقة وبشكل مختصر ومباشر ومناسب لشات ماينكرافت."
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
 } else {
   console.warn("⚠️ لم يتم العثور على GEMINI_API_KEY في متغيرات البيئة!");
 }
+
+// متغير لحفظ وقت آخر طلب لمنع استنزاف الكوتا (Cooldown)
+let lastRequestTime = 0;
 
 // 4. إنشاء وتشغيل بوت ماينكرافت
 function createBot() {
@@ -95,6 +98,14 @@ function createBot() {
         return;
       }
 
+      // نظام مهلة (Cooldown 4 ثوانٍ) حمايةً للـ API
+      const now = Date.now();
+      if (now - lastRequestTime < 4000) {
+        bot.chat("⚠️ يرجى الانتظار 4 ثوانٍ بين كل سؤال.");
+        return;
+      }
+      lastRequestTime = now;
+
       try {
         const result = await aiModel.generateContent(prompt);
         const responseText = result.response.text().trim();
@@ -107,7 +118,7 @@ function createBot() {
         if (msg.includes("403") || msg.includes("API key") || msg.includes("unregistered callers")) {
           msg = "403: مفتاح API غير صالح أو غير مضاف بشكل صحيح في Render";
         } else if (msg.includes("404")) {
-          msg = "404: الموديل غير متاح (غير الموديل لـ gemini-1.5-flash)";
+          msg = "404: الموديل غير متاح";
         } else if (msg.includes("429")) {
           msg = "429: تم تجاوز الحد المسموح للطلبات";
         } else {
@@ -116,7 +127,6 @@ function createBot() {
 
         bot.chat(`❌ ${msg}`);
       }
-
     }
   });
 
