@@ -42,6 +42,8 @@ if (apiKey) {
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
+} else {
+  console.error("⚠️ لم يتم العثور على GEMINI_API_KEY في متغيرات البيئة!");
 }
 
 let lastRequestTime = 0;
@@ -75,49 +77,59 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  bot.on('messagestr', async (rawMessage) => {
-    // 1. تنظيف الرسالة من رموز ألوان ماينكرافت المخفية (مثل §7 أو §f)
-    const cleanMsg = rawMessage.replace(/[\u00A7§][0-9a-fk-or]/gi, '').trim();
+  bot.on('messagestr', async (message) => {
+    // 1. طباعة كل رسالة تصل للبوت في الكونسول للتأكد من القراءة
+    console.log(`💬 [CHAT]: ${message}`);
 
-    // 2. المطابقة بحسب فكرتك:
-    // الكلمة الأخيرة قبل النقطتين `:` أو `>` تكون اسم اللاعب (من 3 إلى 16 حرف)
-    // وتكون متبوعة بـ g أو G ومسافة، ثم السؤال.
-    const match = cleanMsg.match(/(?:^|\s|\])([a-zA-Z0-9_]{3,16})\s*[:>]\s*[gG]\s+(.+)$/i);
+    // تجاهل رسائل البوت نفسه
+    if (message.includes(bot.username)) return;
 
-    if (match) {
-      const sender = match[1];         // اسم اللاعب الصافي (مثل tosty)
-      const prompt = match[2]?.trim(); // السؤال الصافي (مثل hi)
+    // 2. البحث عن نقطتين متبوعتين بحرف g أو G ومسافة
+    const colonIndex = message.search(/:\s*[gG]\s+/);
+    if (colonIndex === -1) return; // الرسالة ليست موجهة للذكاء الاصطناعي
 
-      // تجاهل الرسالة إذا كانت من البوت نفسه أو بدون سؤال
-      if (!prompt || !sender || sender.toLowerCase() === bot.username.toLowerCase()) return;
-      if (!settings.gemini?.enabled || !aiModel) return;
+    // 3. فصل النص إلى جزء الاسم وجزء السؤال
+    const senderPart = message.substring(0, colonIndex).trim(); // الجزء قبل النقطتين (مثل: "MEMBER tosty")
+    const promptPart = message.substring(colonIndex).replace(/^:\s*[gG]\s+/, '').trim(); // الجزء بعد : g
 
-      const now = Date.now();
-      if (now - lastRequestTime < 4000) {
-        bot.chat(`@${sender} ⚠️ Stanna 4 thawani bin kol so2al.`);
-        return;
-      }
-      lastRequestTime = now;
+    // 4. استخراج الكلمة الأخيرة من جزء الاسم (والتي تمثل اسم اللاعب)
+    const rawSender = senderPart.split(/\s+/).pop();
+    const sender = rawSender ? rawSender.replace(/[^a-zA-Z0-9_]/g, '') : null;
 
-      console.log(`📩 سؤال مالي من [${sender}]: ${prompt}`);
+    if (!sender || sender.length < 3 || sender.toLowerCase() === bot.username.toLowerCase()) return;
+    if (!promptPart) return;
 
-      try {
-        const result = await aiModel.generateContent(prompt);
-        let responseText = result.response.text().trim();
+    if (!aiModel) {
+      console.error("❌ لم يتم تنفيذ السؤال لأن مفتاح Gemini API غير معرف!");
+      return;
+    }
 
-        // تنظيف النص من الأسطر الجديدة والرموز التعبيرية التي قد تعطل أمر /aibook
-        responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
+    // مانع السبام (4 ثوانٍ بين الأسئلة)
+    const now = Date.now();
+    if (now - lastRequestTime < 4000) {
+      bot.chat(`@${sender} ⚠️ Stanna 4 thawani bin kol so2al.`);
+      return;
+    }
+    lastRequestTime = now;
 
-        // إرسال الأمر بالصيغة المطلوبة
-        bot.chat(`/aibook ${sender} ${responseText}`);
-        
-        // تنبيه اللاعب في الشات
-        bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
+    console.log(`🎯 سؤال مقبوض من [${sender}]: "${promptPart}"`);
 
-      } catch (error) {
-        console.error("❌ Gemini API Error:", error.message);
-        bot.chat(`@${sender} ❌ Sar moshkel fi el AI.`);
-      }
+    try {
+      const result = await aiModel.generateContent(promptPart);
+      let responseText = result.response.text().trim();
+
+      // تنظيف النص لضمان عدم تخريب أمر /aibook
+      responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
+
+      console.log(`📤 تنفيذ الأمر: /aibook ${sender} ${responseText}`);
+      
+      // إرسال الكتاب وتنبيه اللاعب
+      bot.chat(`/aibook ${sender} ${responseText}`);
+      bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
+
+    } catch (error) {
+      console.error("❌ Gemini API Error:", error.message);
+      bot.chat(`@${sender} ❌ Sar moshkel fi el AI.`);
     }
   });
 
