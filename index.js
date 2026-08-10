@@ -75,41 +75,48 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  // استخدام حدث 'chat' بدلاً من 'messagestr' لضمان دقة التقاط اسم اللاعب والرسالة
-  bot.on('chat', async (username, message) => {
-    // تجاهل رسائل البوت نفسه
-    if (username === bot.username) return;
+  bot.on('messagestr', async (rawMessage) => {
+    // 1. تنظيف الرسالة من رموز ألوان ماينكرافت المخفية (مثل §7 أو §f)
+    const cleanMsg = rawMessage.replace(/[\u00A7§][0-9a-fk-or]/gi, '').trim();
 
-    // التحقق مما إذا كانت الرسالة تبدأ بـ g أو G متبوعة بمسافة
-    if (message.startsWith('g ') || message.startsWith('G ')) {
-      // استخراج السؤال بعد إزالة حرف الـ g والمسافة
-      const prompt = message.substring(2).trim();
+    // 2. المطابقة بحسب فكرتك:
+    // الكلمة الأخيرة قبل النقطتين `:` أو `>` تكون اسم اللاعب (من 3 إلى 16 حرف)
+    // وتكون متبوعة بـ g أو G ومسافة، ثم السؤال.
+    const match = cleanMsg.match(/(?:^|\s|\])([a-zA-Z0-9_]{3,16})\s*[:>]\s*[gG]\s+(.+)$/i);
 
-      if (!prompt || !settings.gemini?.enabled || !aiModel) return;
+    if (match) {
+      const sender = match[1];         // اسم اللاعب الصافي (مثل tosty)
+      const prompt = match[2]?.trim(); // السؤال الصافي (مثل hi)
+
+      // تجاهل الرسالة إذا كانت من البوت نفسه أو بدون سؤال
+      if (!prompt || !sender || sender.toLowerCase() === bot.username.toLowerCase()) return;
+      if (!settings.gemini?.enabled || !aiModel) return;
 
       const now = Date.now();
       if (now - lastRequestTime < 4000) {
-        bot.chat(`@${username} ⚠️ Stanna 4 thawani bin kol so2al.`);
+        bot.chat(`@${sender} ⚠️ Stanna 4 thawani bin kol so2al.`);
         return;
       }
       lastRequestTime = now;
+
+      console.log(`📩 سؤال مالي من [${sender}]: ${prompt}`);
 
       try {
         const result = await aiModel.generateContent(prompt);
         let responseText = result.response.text().trim();
 
-        // تنظيف النص لتفادي تخريب الأمر الخاص بـ Skript/Plugin
+        // تنظيف النص من الأسطر الجديدة والرموز التعبيرية التي قد تعطل أمر /aibook
         responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
 
-        // إرسال الكتاب للاعب الذي سأل مباشرة باستخدام المتغير username
-        bot.chat(`/aibook ${username} ${responseText}`);
+        // إرسال الأمر بالصيغة المطلوبة
+        bot.chat(`/aibook ${sender} ${responseText}`);
         
-        // تنبيه اللاعب
-        bot.chat(`@${username} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
+        // تنبيه اللاعب في الشات
+        bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
 
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
-        bot.chat(`@${username} ❌ Sar moshkel fi el AI.`);
+        bot.chat(`@${sender} ❌ Sar moshkel fi el AI.`);
       }
     }
   });
