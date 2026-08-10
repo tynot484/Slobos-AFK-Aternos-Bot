@@ -38,7 +38,7 @@ if (apiKey) {
 أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
 1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi).
 2. استخدم الأرقام للأحرف (3=ع, 5=خ, 7=ح, 8=غ, 9=ق).
-3. اجعل الإجابة مختصرة جداً (سطرين أو ثلاثة) لتناسب صفحة الكتاب.
+3. قدم إجابة كاملة، مفصلة، ومنظمة جداً للمستخدم (النص سيتم تقسيمه على صفحات كتاب تلقائياً).
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
@@ -75,23 +75,21 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  bot.on('messagestr', async (message) => {
+  // استخدام حدث 'chat' بدلاً من 'messagestr' لضمان دقة التقاط اسم اللاعب والرسالة
+  bot.on('chat', async (username, message) => {
     // تجاهل رسائل البوت نفسه
-    if (message.includes(bot.username)) return;
+    if (username === bot.username) return;
 
-    // Regex متطور لتخطي الرتب والألوان واستخراج اسم اللاعب وسؤاله الذي يبدأ بـ g أو G
-    const match = message.match(/(?:^|[^a-zA-Z0-9_])([a-zA-Z0-9_]{3,16})\s*[:>]\s*[gG]\s+(.+)$/);
+    // التحقق مما إذا كانت الرسالة تبدأ بـ g أو G متبوعة بمسافة
+    if (message.startsWith('g ') || message.startsWith('G ')) {
+      // استخراج السؤال بعد إزالة حرف الـ g والمسافة
+      const prompt = message.substring(2).trim();
 
-    if (match) {
-      const sender = match[1];
-      const prompt = match[2]?.trim();
-
-      if (!prompt || !sender || sender === bot.username) return;
-      if (!settings.gemini?.enabled || !aiModel) return;
+      if (!prompt || !settings.gemini?.enabled || !aiModel) return;
 
       const now = Date.now();
       if (now - lastRequestTime < 4000) {
-        bot.chat(`@${sender} ⚠️ Stanna 4 thawani bin kol so2al.`);
+        bot.chat(`@${username} ⚠️ Stanna 4 thawani bin kol so2al.`);
         return;
       }
       lastRequestTime = now;
@@ -100,18 +98,18 @@ function createBot() {
         const result = await aiModel.generateContent(prompt);
         let responseText = result.response.text().trim();
 
-        // تنظيف النص من السطور الجديدة والرموز التي تخرب الأمر
+        // تنظيف النص لتفادي تخريب الأمر الخاص بـ Skript/Plugin
         responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
 
-        // إرسال الكتاب باستخدام أمر Skript المخصص للاعب الذي سأل فقط
-        bot.chat(`/aibook ${sender} ${responseText}`);
+        // إرسال الكتاب للاعب الذي سأل مباشرة باستخدام المتغير username
+        bot.chat(`/aibook ${username} ${responseText}`);
         
-        // تنبيه اللاعب في الشات
-        bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory!`);
+        // تنبيه اللاعب
+        bot.chat(`@${username} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
 
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
-        bot.chat(`@${sender} ❌ Sar moshkel fi el AI.`);
+        bot.chat(`@${username} ❌ Sar moshkel fi el AI.`);
       }
     }
   });
