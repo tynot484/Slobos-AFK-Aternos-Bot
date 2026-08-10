@@ -75,22 +75,23 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  // استخدام حدث "chat" واستخراج اسم اللاعب الصحيح بغض النظر عن الرتبة أو الـ Tab plugin
-  bot.on('chat', async (username, message) => {
-    if (username === bot.username) return;
+  bot.on('messagestr', async (message) => {
+    // تجاهل رسائل البوت نفسه
+    if (message.includes(bot.username)) return;
 
-    // التحقق مما إذا كانت الرسالة تبدأ بـ g أو G تليها مسافة (مثال: g كيف حالك)
-    const trimmedMessage = message.trim();
-    if (/^[gG]\s+(.+)$/.test(trimmedMessage)) {
-      const match = trimmedMessage.match(/^[gG]\s+(.+)$/);
-      const prompt = match ? match[1].trim() : null;
+    // Regex متطور لتخطي الرتب والألوان واستخراج اسم اللاعب وسؤاله الذي يبدأ بـ g أو G
+    const match = message.match(/(?:^|[^a-zA-Z0-9_])([a-zA-Z0-9_]{3,16})\s*[:>]\s*[gG]\s+(.+)$/);
 
-      if (!prompt) return;
+    if (match) {
+      const sender = match[1];
+      const prompt = match[2]?.trim();
+
+      if (!prompt || !sender || sender === bot.username) return;
       if (!settings.gemini?.enabled || !aiModel) return;
 
       const now = Date.now();
       if (now - lastRequestTime < 4000) {
-        bot.chat(`@${username} ⚠️ Stanna 4 thawani bin kol so2al.`);
+        bot.chat(`@${sender} ⚠️ Stanna 4 thawani bin kol so2al.`);
         return;
       }
       lastRequestTime = now;
@@ -103,14 +104,14 @@ function createBot() {
         responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
 
         // إرسال الكتاب باستخدام أمر Skript المخصص للاعب الذي سأل فقط
-        bot.chat(`/aibook ${username} ${responseText}`);
+        bot.chat(`/aibook ${sender} ${responseText}`);
         
-        // تنبيه اللاعب المحدد في الشات
-        bot.chat(`@${username} 📖 Ba3athtlek ktab f inventory!`);
+        // تنبيه اللاعب في الشات
+        bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory!`);
 
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
-        bot.chat(`@${username} ❌ Sar moshkel fi el AI.`);
+        bot.chat(`@${sender} ❌ Sar moshkel fi el AI.`);
       }
     }
   });
