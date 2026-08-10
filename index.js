@@ -103,10 +103,20 @@ function createBot() {
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
         
-        // طباعة النص المباشر للخطأ داخل شات السيرفر
-        const shortError = error.message.replace(/[\r\n]+/g, ' ').slice(0, 100);
-        bot.chat(`❌ ${shortError}`);
+        let msg = error.message || "";
+        if (msg.includes("403") || msg.includes("API key") || msg.includes("unregistered callers")) {
+          msg = "403: مفتاح API غير صالح أو غير مضاف بشكل صحيح في Render";
+        } else if (msg.includes("404")) {
+          msg = "404: الموديل غير متاح (غير الموديل لـ gemini-1.5-flash)";
+        } else if (msg.includes("429")) {
+          msg = "429: تم تجاوز الحد المسموح للطلبات";
+        } else {
+          msg = msg.split(':').pop().trim().slice(0, 70);
+        }
+
+        bot.chat(`❌ ${msg}`);
       }
+
     }
   });
 
