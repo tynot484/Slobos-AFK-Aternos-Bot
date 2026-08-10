@@ -48,42 +48,16 @@ if (apiKey) {
 
 let lastRequestTime = 0;
 
-// إعدادات رموز القص لكل رتبة بناءً على ملفات LuckPerms
-const RANK_RULES = [
-  { rank: 'MVP+',  markers: ['&#E44A4A', '§#E44A4A', '&E44A4A'] },
-  { rank: 'VIP+',   markers: ['&#8DD9F5', '§#8DD9F5', '&8DD9F5'] },
-  { rank: 'MEMBER', markers: ['&7', '§7'] },
-  { rank: 'VIP',    markers: ['&#7FDBAA', '§#7FDBAA', '&7FDBAA'] },
-  { rank: 'MVP',    markers: ['&#FAD967', '§#FAD967', '&FAD967'] }
+// قائمة نصوص الرتب وأكواد الألوان المحددة الخاصة بك (يدعم & و §)
+const RANK_PREFIX_PATTERNS = [
+  /(?:&|§)#8DD9F5(?:&|§)lVIP\+\s+(?:&|§)#8DD9F5/gi,
+  /(?:&|§)#7FDBAA(?:&|§)lVIP\s+(?:&|§)#7FDBAA/gi,
+  /(?:&|§)#FAD967(?:&|§)lMVP\s+(?:&|§)#FAD967/gi,
+  /(?:&|§)#E44A4A(?:&|§)lMVP\+\s+(?:&|§)#E44A4A/gi,
+  /(?:&|§)7(?:&|§)lMEMBER\s+(?:&|§)7/gi,
+  // الاحتياط للأسماء الصافية
+  /MVP\+/gi, /VIP\+/gi, /MEMBER/gi, /VIP/gi, /MVP/gi
 ];
-
-function extractSenderName(beforeColon) {
-  for (const rule of RANK_RULES) {
-    if (beforeColon.toUpperCase().includes(rule.rank)) {
-      // البحث عن آخر كود لون خاص بهذه الرتبة
-      for (const marker of rule.markers) {
-        const index = beforeColon.lastIndexOf(marker);
-        if (index !== -1) {
-          // حذف الكود وكل ما يقع قبله
-          const rawAfter = beforeColon.substring(index + marker.length);
-          // تنظيف ما تبقى للحصول على اسم ماينكرافت الصافي
-          const match = rawAfter.match(/[a-zA-Z0-9_.]+/);
-          if (match) return match[0];
-        }
-      }
-      // إذا لم يجد رمز اللون بشكل صريح، يقطع من بعد اسم الرتبة مباشرة
-      const rankIdx = beforeColon.toUpperCase().lastIndexOf(rule.rank);
-      const rawAfterRank = beforeColon.substring(rankIdx + rule.rank.length);
-      const match = rawAfterRank.match(/[a-zA-Z0-9_.]+/);
-      if (match) return match[0];
-    }
-  }
-
-  // خيار احتياطي طارئ
-  const clean = beforeColon.replace(/(§.|&[0-9a-fk-or#]|&#[0-9a-fA-F]{6})/gi, '').trim();
-  const lastWord = clean.split(/\s+/).pop();
-  return lastWord ? lastWord.replace(/[^a-zA-Z0-9_.]/g, '') : null;
-}
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -104,21 +78,36 @@ function createBot() {
     const colonIndex = fullMessage.indexOf(':');
     if (colonIndex === -1) return;
 
+    // فصل ما قبل النقطتين وما بعد النقطتين
     const beforeColon = fullMessage.substring(0, colonIndex);
     const afterColon = fullMessage.substring(colonIndex + 1).trim();
 
-    // 2. الشرط: أن تبدأ الرسالة بـ g أو G ومسافة بعد النقطتين
+    // 2. التحقق من وجود g أو G ومسافة بعد النقطتين مباشرة
     const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
-    if (!matchG) return;
+    if (!matchG) return; // ليس سؤالاً موجهاً للبوت
 
-    const prompt = matchG[1].trim();
+    const prompt = matchG[1].trim(); // استخراج السؤال
     if (!prompt) return;
 
-    // 3. استخراج اسم اللاعب بحذف الرتبة والرمز وكل ما قبلهما
-    const sender = extractSenderName(beforeColon);
+    // 3. حذف كتابات الرتب المحددة من الجزء الواقع قبل النقطتين
+    let cleanBefore = beforeColon;
+    for (const pattern of RANK_PREFIX_PATTERNS) {
+      cleanBefore = cleanBefore.replace(pattern, '');
+    }
+
+    // تنظيف أي رموز ألوان أو أقواس متبقية
+    cleanBefore = cleanBefore
+      .replace(/&#[0-9a-fA-F]{6}/gi, '')
+      .replace(/§#[0-9a-fA-F]{6}/gi, '')
+      .replace(/[&§][0-9a-fk-orA-FK-OR]/gi, '')
+      .trim();
+
+    // 4. استخراج اسم اللاعب النهائي الصافي (بدون النقطتين)
+    const nameMatch = cleanBefore.match(/[a-zA-Z0-9_.]+/);
+    const sender = nameMatch ? nameMatch[0] : null;
 
     if (!sender || sender.length < 2 || sender.toLowerCase() === bot.username.toLowerCase()) {
-      console.log(`⚠️ لم يتم استخراج اسم صالح من النص: "${beforeColon}"`);
+      console.log(`⚠️ تعذر استخراج اسم صالح من النص: "${beforeColon}"`);
       return;
     }
 
@@ -132,16 +121,16 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 [اللاعب المكتشف]: "${sender}" | [السؤال]: "${prompt}"`);
+    console.log(`🎯 [اللاعب]: "${sender}" | [السؤال]: "${prompt}"`);
 
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تنظيف النص ليكون سطر واحد مناسب لأمر ماينكرافت
+      // تنظيف النص ليكون سطر واحد خالي من الأسطر الجديدة لضمان تنفيذ الكومند
       responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
 
-      console.log(`🚀 [تنفيذ الأمر]: /aibook ${sender} ${responseText}`);
+      console.log(`🚀 [الأمر المنفذ]: /aibook ${sender} ${responseText}`);
 
       // إرسال الكتاب وتنبيه اللاعب
       bot.chat(`/aibook ${sender} ${responseText}`);
