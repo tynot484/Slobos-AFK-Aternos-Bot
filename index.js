@@ -30,15 +30,28 @@ if (process.env.RENDER_EXTERNAL_URL) {
   }, 10 * 60 * 1000); // كل 10 دقائق
 }
 
-// 3. تهيئة الذكاء الاصطناعي Gemini AI
+// 3. تهيئة الذكاء الاصطناعي Gemini AI مع تعليمات الفرنكو-تونسي (Arabizi)
 const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : null;
 let aiModel = null;
 
 if (apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   aiModel = genAI.getGenerativeModel({
-    model: "gemini-3.5-flash-lite", // الموديل المستقر والسريع
-    systemInstruction: "أنت مساعد ذكاء اصطناعي ذكي وسريع داخل سيرفر ماينكرافت. أجب بدقة وبشكل مختصر ومباشر ومناسب لشات ماينكرافت."
+    model: "gemini-3.5-flash-lite",
+    systemInstruction: `
+أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
+قواعد مهمة جداً يجب اتباعها دائماً:
+1. يمنع منعاً باتاً استخدام الحروف العربية (لأن الشات يعرضها مقلوبة).
+2. يجب أن تجيب دائماً بالدارجة التونسية المكتوبة بالحروف والارقام اللاتينية (Franco-Tunisian / Arabizi).
+3. التزم بهذه الأرقام للأحرف العربية:
+   - 3 = ع (مثال: 3aslama, 3lik)
+   - 4 أو dh = ذ
+   - 5 أو kh = خ (مثال: 5ater, khir)
+   - 7 = ح (مثال: 7amdoullah, 7aja)
+   - 8 أو gh = غ (مثال: 8ali)
+   - 9 = ق (مثال: 9alb)
+4. اجعل الإجابات قصيرة ومباشرة ومناسبة لشات ماينكرافت (مثال: "3aslama labes 3lik kifech n3awnok?").
+`
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
 } else {
@@ -81,16 +94,18 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
+  // 5. استقبال الأوامر والاستجابة بالفرنكو مع توجيه الرد للسائل مباشرة
   bot.on('messagestr', async (message) => {
-    const match = message.match(/:\s*[gG]\s+(.+)$/) || message.match(/^[gG]\s+(.+)$/);
+    if (message.startsWith(bot.username) || message.includes(` ${bot.username}:`)) return;
+
+    // استخراج اسم اللاعب والسؤال
+    const match = message.match(/(?:(?:\[.*?\]\s*|<)?([a-zA-Z0-9_]{3,16})>?\s*[:>]\s*)?[gG]\s+(.+)$/i);
 
     if (match) {
-      if (message.startsWith(bot.username) || message.includes(` ${bot.username}:`)) return;
+      const sender = match[1] || null;
+      const prompt = match[2]?.trim();
 
-      const prompt = match[1].trim();
       if (!prompt) return;
-
       if (!settings.gemini?.enabled) return;
 
       if (!aiModel) {
@@ -98,10 +113,11 @@ function createBot() {
         return;
       }
 
-      // نظام مهلة (Cooldown 4 ثوانٍ) حمايةً للـ API
+      // نظام مهلة (Cooldown 4 ثوانٍ)
       const now = Date.now();
       if (now - lastRequestTime < 4000) {
-        bot.chat("⚠️ يرجى الانتظار 4 ثوانٍ بين كل سؤال.");
+        const warningMsg = "⚠️ Stanna 4 thawani bin kol so2al.";
+        bot.chat(sender ? `@${sender} ${warningMsg}` : warningMsg);
         return;
       }
       lastRequestTime = now;
@@ -110,27 +126,31 @@ function createBot() {
         const result = await aiModel.generateContent(prompt);
         const responseText = result.response.text().trim();
 
-        sendChatMessage(bot, responseText);
+        // إرسال الإجابة بالفرنكو في الشات مباشرة مع ذكر اسم السائل
+        sendChatMessage(bot, responseText, sender);
+
+        // إذا أردت إعطاء كتاب للسائل أيضاً (يلزم البوت أن يكون OP)، قم بإلغاء التهميش عن السطر التالي:
+        // sendAnswerInBook(bot, sender, responseText);
+
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
         
         let msg = error.message || "";
         if (msg.includes("403") || msg.includes("API key") || msg.includes("unregistered callers")) {
-          msg = "403: مفتاح API غير صالح أو غير مضاف بشكل صحيح في Render";
+          msg = "403: El key mouch sa7i7 fi Render";
         } else if (msg.includes("404")) {
-          msg = "404: الموديل غير متاح";
+          msg = "404: El model mouch mawjoud";
         } else if (msg.includes("429")) {
-          msg = "429: تم تجاوز الحد المسموح للطلبات";
+          msg = "429: Fathat el quota mta3el API";
         } else {
           msg = msg.split(':').pop().trim().slice(0, 70);
         }
 
-        bot.chat(`❌ ${msg}`);
+        bot.chat(sender ? `@${sender} ❌ ${msg}` : `❌ ${msg}`);
       }
     }
   });
 
-  // إعادة الاتصال التلقائي عند قطع الاتصال
   bot.on('end', () => {
     console.log("🔄 تم قطع الاتصال، جاري إعادة الاتصال خلال 5 ثوانٍ...");
     setTimeout(createBot, 5000);
@@ -141,21 +161,34 @@ function createBot() {
   });
 }
 
-// دالة تقسيم الرسائل الطويلة لتفادي الطرد أو التقطيع من السيرفر
-function sendChatMessage(bot, text) {
+// دالة تقسيم الرسائل وإرسالها للسائل بالفرنكو
+function sendChatMessage(bot, text, targetUser = null) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   let delay = 0;
+  let isFirstChunk = true;
 
   for (const line of lines) {
-    // تقطيع الأسطر الطويلة لأجزاء بأقصى حد 200 حرف
     const chunks = line.match(/.{1,200}/g) || [line];
-    for (const chunk of chunks) {
+    for (let chunk of chunks) {
+      if (isFirstChunk && targetUser) {
+        chunk = `@${targetUser} ${chunk}`;
+        isFirstChunk = false;
+      }
+
       setTimeout(() => {
         bot.chat(chunk);
       }, delay);
-      delay += 1200; // تأخير 1.2 ثانية بين كل رسالة والأخرى
+      delay += 1200;
     }
   }
+}
+
+// دالة إرسال كتاب للاعب تحتوي على الإجابة (تُستخدم فقط إذا كان لدى البوت صلاحيات /give)
+function sendAnswerInBook(bot, username, answerText) {
+  if (!username) return;
+  const cleanText = answerText.replace(/"/g, '\\"').replace(/\n/g, ' ');
+  const giveCommand = `/give ${username} written_book{title:"Réponse AI",author:"Bot",pages=['{"text":"${cleanText}"}']} 1`;
+  bot.chat(giveCommand);
 }
 
 createBot();
