@@ -31,7 +31,7 @@ if (process.env.RENDER_EXTERNAL_URL) {
 }
 
 // 3. تهيئة الذكاء الاصطناعي Gemini AI
-const apiKey = process.env.GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : null;
 let aiModel = null;
 
 if (apiKey) {
