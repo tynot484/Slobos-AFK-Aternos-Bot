@@ -42,8 +42,6 @@ if (apiKey) {
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
-} else {
-  console.error("⚠️ لم يتم العثور على GEMINI_API_KEY في متغيرات البيئة!");
 }
 
 let lastRequestTime = 0;
@@ -60,14 +58,6 @@ function createBot() {
 
   bot.on('spawn', () => {
     console.log(`✅ دخل البوت إلى السيرفر باسم: ${bot.username}`);
-
-    if (settings.utils?.['auto-auth']?.enabled) {
-      const pass = settings.utils['auto-auth'].password;
-      setTimeout(() => {
-        bot.chat(`/register ${pass} ${pass}`);
-        bot.chat(`/login ${pass}`);
-      }, 2000);
-    }
   });
 
   setInterval(() => {
@@ -78,31 +68,36 @@ function createBot() {
   }, settings.movement?.['random-jump']?.interval || 30000);
 
   bot.on('messagestr', async (message) => {
-    // 1. طباعة كل رسالة تصل للبوت في الكونسول للتأكد من القراءة
-    console.log(`💬 [CHAT]: ${message}`);
+    // 1. تنظيف ألوان ماينكرافت المخفية
+    const cleanMsg = message.replace(/(§.|&[0-9a-fk-or])/gi, '').trim();
 
     // تجاهل رسائل البوت نفسه
-    if (message.includes(bot.username)) return;
+    if (cleanMsg.includes(bot.username)) return;
 
-    // 2. البحث عن نقطتين متبوعتين بحرف g أو G ومسافة
-    const colonIndex = message.search(/:\s*[gG]\s+/);
-    if (colonIndex === -1) return; // الرسالة ليست موجهة للذكاء الاصطناعي
+    // 2. البحث عن النقطتين `:`
+    const colonIndex = cleanMsg.indexOf(':');
+    if (colonIndex === -1) return;
 
-    // 3. فصل النص إلى جزء الاسم وجزء السؤال
-    const senderPart = message.substring(0, colonIndex).trim(); // الجزء قبل النقطتين (مثل: "MEMBER tosty")
-    const promptPart = message.substring(colonIndex).replace(/^:\s*[gG]\s+/, '').trim(); // الجزء بعد : g
+    // 3. الجزء قبل النقطتين (مثل: "MEMBER tosty")
+    const beforeColon = cleanMsg.substring(0, colonIndex).trim();
 
-    // 4. استخراج الكلمة الأخيرة من جزء الاسم (والتي تمثل اسم اللاعب)
-    const rawSender = senderPart.split(/\s+/).pop();
-    const sender = rawSender ? rawSender.replace(/[^a-zA-Z0-9_]/g, '') : null;
+    // 4. الجزء بعد النقطتين (مثل: "g hi")
+    const afterColon = cleanMsg.substring(colonIndex + 1).trim();
 
-    if (!sender || sender.length < 3 || sender.toLowerCase() === bot.username.toLowerCase()) return;
-    if (!promptPart) return;
+    // 5. الشرط: أن يبدأ ما بعد النقطتين بـ g أو G ومسافة
+    if (!/^[gG]\s+/.test(afterColon)) return;
 
-    if (!aiModel) {
-      console.error("❌ لم يتم تنفيذ السؤال لأن مفتاح Gemini API غير معرف!");
-      return;
-    }
+    // 6. استخراج اسم اللاعب: أخذ الكلمة الواقعة بعد آخر مسافة قبل النقطتين
+    const lastSpaceIndex = beforeColon.lastIndexOf(' ');
+    const sender = lastSpaceIndex !== -1 
+      ? beforeColon.substring(lastSpaceIndex + 1).trim() 
+      : beforeColon;
+
+    // 7. استخراج السؤال الصافي
+    const prompt = afterColon.replace(/^[gG]\s+/, '').trim();
+
+    if (!sender || !prompt || sender === bot.username) return;
+    if (!aiModel) return;
 
     // مانع السبام (4 ثوانٍ بين الأسئلة)
     const now = Date.now();
@@ -112,18 +107,16 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 سؤال مقبوض من [${sender}]: "${promptPart}"`);
+    console.log(`🎯 سؤال مقبوض من [${sender}]: ${prompt}`);
 
     try {
-      const result = await aiModel.generateContent(promptPart);
+      const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تنظيف النص لضمان عدم تخريب أمر /aibook
+      // تنظيف النص لضمان إرسال الأمر
       responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
 
-      console.log(`📤 تنفيذ الأمر: /aibook ${sender} ${responseText}`);
-      
-      // إرسال الكتاب وتنبيه اللاعب
+      // إرسال الكتاب والتنبيه
       bot.chat(`/aibook ${sender} ${responseText}`);
       bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
 
