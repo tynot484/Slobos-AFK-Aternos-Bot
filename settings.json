@@ -1,13 +1,13 @@
 {
   "name": "AFK Bot",
   "server": {
-    "ip": "YOUR_SERVER_IP",
-    "port": 25565,
+    "ip": "node-de-free-01.tickhosting.com",
+    "port": 50589,
     "version": "",
     "try-creative": false
   },
   "bot-account": {
-    "username": "AFK_Bot",
+    "username": "Ana_Maradhon",
     "password": "",
     "type": "offline"
   },
@@ -23,7 +23,7 @@
       "enabled": false,
       "repeat": false,
       "repeat-delay": 30,
-      "messages": ["Hello everyone!"]
+      "messages": ["Ana Maradhon"]
     },
     "anti-afk": {
       "enabled": true,
