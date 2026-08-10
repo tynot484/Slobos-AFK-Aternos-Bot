@@ -32,13 +32,14 @@ let aiModel = null;
 
 if (apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
+  // استخدام الموديل المعتمد والرسمي
   aiModel = genAI.getGenerativeModel({
-    model: "gemini-3.5-flash-lite",
+    model: "gemini-2.5-flash-lite",
     systemInstruction: `
 أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
 1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi).
 2. استخدم الأرقام للأحرف (3=ع, 5=خ, 7=ح, 8=غ, 9=ق).
-3. قدم إجابة كاملة، مفصلة، ومنظمة جداً للمستخدم (النص سيتم تقسيمه على صفحات كتاب تلقائياً).
+3. قدم إجابة كاملة، مفصلة، ومنظمة جداً للمستخدم.
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
@@ -63,11 +64,14 @@ function createBot() {
   });
 
   bot.on('messagestr', async (fullMessage) => {
-    // 1. تنظيف الرسالة بالكامل من رموز الألوان المخفية (§ و & و HEX) قبل أي معالجة
+    console.log(`💬 [شات خام]: "${fullMessage}"`);
+
+    // 1. تنظيف شامل لأكواد الألوان المخفية والرمز | والأقواس
     const cleanMsg = fullMessage
       .replace(/&#[0-9a-fA-F]{6}/gi, '')
       .replace(/&x(&[0-9a-fA-F]){6}/gi, '')
       .replace(/[&§][0-9a-fk-orA-FK-OR]/gi, '')
+      .replace(/[|<>[\]()]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
 
@@ -81,7 +85,7 @@ function createBot() {
     const beforeColon = cleanMsg.substring(0, colonIndex).trim();
     const afterColon = cleanMsg.substring(colonIndex + 1).trim();
 
-    // 3. الفحص الصريح: هل يبدأ ما بعد النقطتين بـ g أو G ومسافة؟
+    // 3. التحقق من وجود g أو G ومسافة بعد النقطتين
     const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
     if (!matchG) return;
 
@@ -104,7 +108,10 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 [طلب مقبول] المرسل: "${sender}" | السؤال: "${prompt}"`);
+    console.log(`🎯 [طلب مقبوض] المرسل: "${sender}" | السؤال: "${prompt}"`);
+
+    // إرسال تنبيه في الشات فور التعرف على السؤال
+    bot.chat(`@${sender} ⏳ Ja3li njawbek...`);
 
     try {
       const result = await aiModel.generateContent(prompt);
@@ -115,7 +122,7 @@ function createBot() {
 
       console.log(`🚀 [الأمر المنفذ]: /aibook ${sender} ${responseText}`);
 
-      // إرسال الأمر وتنبيه اللاعب
+      // إرسال الكتاب وتنبيه اللاعب
       bot.chat(`/aibook ${sender} ${responseText}`);
       bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory!`);
 
