@@ -106,14 +106,11 @@ function createBot() {
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
         
-        // طباعة نوع الخطأ بدقة في شات ماينكرافت
-        if (error.message.includes('API key') || error.message.includes('403')) {
-          bot.chat("❌ مفتاح API غير صالح أو غير مقبول.");
-        } else if (error.message.includes('404')) {
-          bot.chat("❌ الموديل غير متاح لحسابك.");
-        } else {
-          bot.chat("❌ خطأ في الاتصال بالذكاء الاصطناعي.");
-        }
+        // طباعة النص المباشر للخطأ داخل شات السيرفر
+        const shortError = error.message.replace(/[\r\n]+/g, ' ').slice(0, 100);
+        bot.chat(`❌ ${shortError}`);
+      }
+
       }
     }
   });
