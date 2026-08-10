@@ -31,19 +31,21 @@ if (process.env.RENDER_EXTERNAL_URL) {
 }
 
 // 3. تهيئة الذكاء الاصطناعي Gemini AI
+// 3. تهيئة الذكاء الاصطناعي Gemini AI
 const apiKey = process.env.GEMINI_API_KEY;
 let aiModel = null;
 
 if (apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   aiModel = genAI.getGenerativeModel({
-    model: settings.gemini?.model || "gemini-1.5-flash",
+    model: "gemini-1.5-flash", // تثبيت الموديل المعتمد رسمياً
     systemInstruction: "أنت مساعد ذكاء اصطناعي ذكي وسريع داخل سيرفر ماينكرافت. أجب بدقة وبشكل مختصر ومباشر ومناسب لشات ماينكرافت."
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
 } else {
   console.warn("⚠️ لم يتم العثور على GEMINI_API_KEY في متغيرات البيئة!");
 }
+
 
 // 4. إنشاء وتشغيل بوت ماينكرافت
 function createBot() {
@@ -79,12 +81,11 @@ function createBot() {
   }, settings.movement?.['random-jump']?.interval || 30000);
 
   // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
+    // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
   bot.on('messagestr', async (message) => {
-    // التعرف على g أو G بعد اسم اللاعب ورتبته (مثل: MEMBER tosty: g hello) أو في بداية السطر
     const match = message.match(/:\s*[gG]\s+(.+)$/) || message.match(/^[gG]\s+(.+)$/);
 
     if (match) {
-      // تجاهل الرسالة فقط إذا كانت صادرة من البوت نفسه كـ مرسل
       if (message.startsWith(bot.username) || message.includes(` ${bot.username}:`)) return;
 
       const prompt = match[1].trim();
@@ -93,23 +94,30 @@ function createBot() {
       if (!settings.gemini?.enabled) return;
 
       if (!aiModel) {
-        bot.chat("⚠️ Gemini AI غير مفعل. تأكد من إضافة GEMINI_API_KEY.");
+        bot.chat("⚠️ Gemini API Key غير مضاف في Render.");
         return;
       }
 
       try {
-        // إرسال الطلب لـ Gemini
         const result = await aiModel.generateContent(prompt);
         const responseText = result.response.text().trim();
 
-        // إرسال الرد للشات
         sendChatMessage(bot, responseText);
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
-        bot.chat("❌ حدث خطأ أثناء معالجة الطلب.");
+        
+        // طباعة نوع الخطأ بدقة في شات ماينكرافت
+        if (error.message.includes('API key') || error.message.includes('403')) {
+          bot.chat("❌ مفتاح API غير صالح أو غير مقبول.");
+        } else if (error.message.includes('404')) {
+          bot.chat("❌ الموديل غير متاح لحسابك.");
+        } else {
+          bot.chat("❌ خطأ في الاتصال بالذكاء الاصطناعي.");
+        }
       }
     }
   });
+
 
   // إعادة الاتصال التلقائي عند قطع الاتصال
   bot.on('end', () => {
