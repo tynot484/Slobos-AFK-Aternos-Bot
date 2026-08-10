@@ -70,7 +70,7 @@
   },
   "gemini": {
     "enabled": true,
-    "model": "gemini-1.5-flash-latest",
+    "model": "gemini-3.5-flash-lite",
     "prefix": "g"
   }
 }
