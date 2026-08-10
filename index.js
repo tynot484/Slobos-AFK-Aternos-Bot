@@ -48,17 +48,6 @@ if (apiKey) {
 
 let lastRequestTime = 0;
 
-// قائمة نصوص الرتب وأكواد الألوان المحددة الخاصة بك (يدعم & و §)
-const RANK_PREFIX_PATTERNS = [
-  /(?:&|§)#8DD9F5(?:&|§)lVIP\+\s+(?:&|§)#8DD9F5/gi,
-  /(?:&|§)#7FDBAA(?:&|§)lVIP\s+(?:&|§)#7FDBAA/gi,
-  /(?:&|§)#FAD967(?:&|§)lMVP\s+(?:&|§)#FAD967/gi,
-  /(?:&|§)#E44A4A(?:&|§)lMVP\+\s+(?:&|§)#E44A4A/gi,
-  /(?:&|§)7(?:&|§)lMEMBER\s+(?:&|§)7/gi,
-  // الاحتياط للأسماء الصافية
-  /MVP\+/gi, /VIP\+/gi, /MEMBER/gi, /VIP/gi, /MVP/gi
-];
-
 function createBot() {
   const bot = mineflayer.createBot({
     host: settings.server?.ip || 'localhost',
@@ -74,43 +63,37 @@ function createBot() {
   });
 
   bot.on('messagestr', async (fullMessage) => {
-    // 1. البحث عن مكان النقطتين `:`
-    const colonIndex = fullMessage.indexOf(':');
-    if (colonIndex === -1) return;
-
-    // فصل ما قبل النقطتين وما بعد النقطتين
-    const beforeColon = fullMessage.substring(0, colonIndex);
-    const afterColon = fullMessage.substring(colonIndex + 1).trim();
-
-    // 2. التحقق من وجود g أو G ومسافة بعد النقطتين مباشرة
-    const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
-    if (!matchG) return; // ليس سؤالاً موجهاً للبوت
-
-    const prompt = matchG[1].trim(); // استخراج السؤال
-    if (!prompt) return;
-
-    // 3. حذف كتابات الرتب المحددة من الجزء الواقع قبل النقطتين
-    let cleanBefore = beforeColon;
-    for (const pattern of RANK_PREFIX_PATTERNS) {
-      cleanBefore = cleanBefore.replace(pattern, '');
-    }
-
-    // تنظيف أي رموز ألوان أو أقواس متبقية
-    cleanBefore = cleanBefore
+    // 1. تنظيف الرسالة بالكامل من رموز الألوان المخفية (§ و & و HEX) قبل أي معالجة
+    const cleanMsg = fullMessage
       .replace(/&#[0-9a-fA-F]{6}/gi, '')
-      .replace(/§#[0-9a-fA-F]{6}/gi, '')
+      .replace(/&x(&[0-9a-fA-F]){6}/gi, '')
       .replace(/[&§][0-9a-fk-orA-FK-OR]/gi, '')
+      .replace(/\s+/g, ' ')
       .trim();
 
-    // 4. استخراج اسم اللاعب النهائي الصافي (بدون النقطتين)
-    const nameMatch = cleanBefore.match(/[a-zA-Z0-9_.]+/);
-    const sender = nameMatch ? nameMatch[0] : null;
+    // تجاهل رسائل البوت نفسه
+    if (cleanMsg.toLowerCase().includes(bot.username.toLowerCase())) return;
 
-    if (!sender || sender.length < 2 || sender.toLowerCase() === bot.username.toLowerCase()) {
-      console.log(`⚠️ تعذر استخراج اسم صالح من النص: "${beforeColon}"`);
-      return;
-    }
+    // 2. البحث عن النقطتين `:`
+    const colonIndex = cleanMsg.indexOf(':');
+    if (colonIndex === -1) return;
 
+    const beforeColon = cleanMsg.substring(0, colonIndex).trim();
+    const afterColon = cleanMsg.substring(colonIndex + 1).trim();
+
+    // 3. الفحص الصريح: هل يبدأ ما بعد النقطتين بـ g أو G ومسافة؟
+    const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
+    if (!matchG) return;
+
+    const prompt = matchG[1].trim();
+    if (!prompt) return;
+
+    // 4. استخراج اسم اللاعب (الكلمة الأخيرة الصافية قبل النقطتين)
+    const words = beforeColon.split(' ').filter(w => w.length > 0);
+    const rawName = words.pop();
+    const sender = rawName ? rawName.replace(/[^a-zA-Z0-9_.]/g, '') : null;
+
+    if (!sender || sender.length < 2 || sender.toLowerCase() === bot.username.toLowerCase()) return;
     if (!aiModel) return;
 
     // مانع السبام (4 ثوانٍ بين الأسئلة)
@@ -121,18 +104,18 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 [اللاعب]: "${sender}" | [السؤال]: "${prompt}"`);
+    console.log(`🎯 [طلب مقبول] المرسل: "${sender}" | السؤال: "${prompt}"`);
 
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تنظيف النص ليكون سطر واحد خالي من الأسطر الجديدة لضمان تنفيذ الكومند
+      // تجهيز النص ليكون سطر واحد مناسب لأوامر ماينكرافت
       responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
 
       console.log(`🚀 [الأمر المنفذ]: /aibook ${sender} ${responseText}`);
 
-      // إرسال الكتاب وتنبيه اللاعب
+      // إرسال الأمر وتنبيه اللاعب
       bot.chat(`/aibook ${sender} ${responseText}`);
       bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory!`);
 
