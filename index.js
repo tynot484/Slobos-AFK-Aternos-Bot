@@ -79,24 +79,24 @@ function createBot() {
   }, settings.movement?.['random-jump']?.interval || 30000);
 
   // 5. استقبال الأوامر والاستجابة عبر Gemini AI
-  bot.on('chat', async (username, message) => {
-    if (username === bot.username) return; // إهمال رسائل البوت نفسه
+    // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
+  bot.on('messagestr', async (message) => {
+    // إهمال الرسائل الصادرة من البوت نفسه لمنع التكرار
+    if (message.includes(bot.username)) return;
 
-    const trimmedMsg = message.trim();
-    const prefix = (settings.gemini?.prefix || 'g').toLowerCase();
+    // التعرف على g أو G بعد اسم اللاعب ورتبته (مثل: MEMBER tosty: g hello) أو في بداية السطر
+    const match = message.match(/:\s*[gG]\s+(.+)$/) || message.match(/^[gG]\s+(.+)$/);
 
-    // التحقق مما إذا كانت الرسالة تبدأ بـ g أو G متبوعة بمسافة
-    if (trimmedMsg.toLowerCase().startsWith(`${prefix} `)) {
+    if (match) {
+      const prompt = match[1].trim();
+      if (!prompt) return;
+
       if (!settings.gemini?.enabled) return;
 
       if (!aiModel) {
         bot.chat("⚠️ Gemini AI غير مفعل. تأكد من إضافة GEMINI_API_KEY.");
         return;
       }
-
-      // استخراج السؤال بعد الحرف g والمسافة
-      const prompt = trimmedMsg.slice(prefix.length + 1).trim();
-      if (!prompt) return;
 
       try {
         // إرسال الطلب لـ Gemini
@@ -111,6 +111,7 @@ function createBot() {
       }
     }
   });
+  
 
   // إعادة الاتصال التلقائي عند قطع الاتصال
   bot.on('end', () => {
