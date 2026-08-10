@@ -42,12 +42,11 @@ if (apiKey) {
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
+} else {
+  console.error("❌ لم يتم العثور على GEMINI_API_KEY!");
 }
 
 let lastRequestTime = 0;
-
-// قائمة جميع الرتب للتحقق منها وتصفيتها
-const KNOWN_RANKS = ['MVP+', 'VIP+', 'MEMBER', 'VIP', 'MVP', 'ADMIN', 'OWNER', 'DEFAULT'];
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -63,50 +62,57 @@ function createBot() {
     console.log(`✅ دخل البوت إلى السيرفر باسم: ${bot.username}`);
   });
 
-  setInterval(() => {
-    if (bot && settings.movement?.['random-jump']?.enabled) {
-      bot.setControlState('jump', true);
-      setTimeout(() => bot.setControlState('jump', false), 500);
-    }
-  }, settings.movement?.['random-jump']?.interval || 30000);
-
   bot.on('messagestr', async (fullMessage) => {
-    // 1. تنظيف شامل وأولي لأي ألوان وهيكس (HEX) وأكواد ماينكرافت المخفية
-    const cleanMsg = fullMessage
-      .replace(/&#[0-9a-fA-F]{6}/g, '')          // ألوان HEX الحديثة
-      .replace(/&x(&[0-9a-fA-F]){6}/gi, '')      // ألوان HEX الكلاسيكية
-      .replace(/[&§][0-9a-fk-orA-FK-OR]/gi, '')  // ألوان ماينكرافت العادية
+    console.log(`💬 [RAW CHAT]: "${fullMessage}"`);
+
+    // 1. تنظيف الألوان والأكواد المخفية
+    let cleanMsg = fullMessage
+      .replace(/&#[0-9a-fA-F]{6}/g, '')
+      .replace(/&x(&[0-9a-fA-F]){6}/gi, '')
+      .replace(/[&§][0-9a-fk-orA-FK-OR]/gi, '')
       .trim();
 
     // تجاهل رسائل البوت نفسه
     if (cleanMsg.toLowerCase().includes(bot.username.toLowerCase())) return;
 
-    // 2. التحقق الذكي الصارم: يجب أن تحتوي الرسالة على (: g ) أو (: G ) ومسافة
-    // إذا لم يتحقق الشرط، يخرج البوت مباشرة دون استهلاك أي معالجة
-    const triggerMatch = cleanMsg.match(/:\s*[gG]\s+(.+)$/i);
-    if (!triggerMatch) return; 
+    // 2. البحث عن مكان النقطتين `:`
+    const colonIndex = cleanMsg.indexOf(':');
+    if (colonIndex === -1) return;
 
-    const prompt = triggerMatch[1].trim(); // استخراج السؤال الصافي
+    const beforeColon = cleanMsg.substring(0, colonIndex).trim();
+    const afterColon = cleanMsg.substring(colonIndex + 1).trim();
+
+    // 3. التحقق من أن الرسالة تبدأ بـ g أو G ومسافة
+    const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
+    if (!matchG) return;
+
+    const prompt = matchG[1].trim();
     if (!prompt) return;
 
-    // 3. تحليل وشق النص لمعرفة اسم اللاعب بناءً على الرتبة
-    const colonIndex = cleanMsg.indexOf(':');
-    let beforeColon = cleanMsg.substring(0, colonIndex).trim();
+    // 4. جلب قائمة أسماء اللاعبين المتصلين بالكامل عبر bot.players
+    const onlinePlayers = Object.keys(bot.players).filter(
+      (name) => name.toLowerCase() !== bot.username.toLowerCase()
+    );
 
-    // فحص الرتبة وحذفها من النص
-    for (const rank of KNOWN_RANKS) {
-      if (beforeColon.toUpperCase().includes(rank.toUpperCase())) {
-        const rankRegex = new RegExp(rank.replace('+', '\\+'), 'gi');
-        beforeColon = beforeColon.replace(rankRegex, '').trim();
-        break;
-      }
+    // 5. البحث عن أي اسم متصل موجود داخل النص الواقع قبل النقطتين
+    let sender = onlinePlayers.find((playerName) => {
+      // فحص وجود اسم اللاعب المتصل داخل النص
+      const regex = new RegExp(`\\b${playerName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i');
+      return regex.test(beforeColon);
+    });
+
+    // احتياطي: إذا لم يتعرف عليه من القائمة لأي سبب، يأخذ الكلمة الأخيرة قبل النقطتين
+    if (!sender) {
+      const words = beforeColon.split(/\s+/).filter((w) => w.length > 0);
+      const rawLastWord = words.pop();
+      sender = rawLastWord ? rawLastWord.replace(/[^a-zA-Z0-9_.]/g, '') : null;
     }
 
-    // 4. استخراج اسم اللاعب الصافي المطابق لمواصفات ماينكرافت (3-16 حرف/رقم)
-    const validNames = beforeColon.match(/[a-zA-Z0-9_]{3,16}/g);
-    const sender = validNames ? validNames.pop() : null;
+    if (!sender || sender.length < 2) {
+      console.log(`⚠️ لم يتم التعرف على مرسل الرسالة من قائمة اللاعبين المتصلين.`);
+      return;
+    }
 
-    if (!sender || sender.toLowerCase() === bot.username.toLowerCase()) return;
     if (!aiModel) return;
 
     // مانع السبام (4 ثوانٍ بين كل سؤال)
@@ -117,27 +123,28 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 [طلب مقبول] اللاعب: "${sender}" | السؤال: "${prompt}"`);
+    console.log(`🎯 [لاعب متصل مؤكد]: "${sender}" | السؤال: "${prompt}"`);
 
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تنظيف النص لضمان عدم تخريب أمر /aibook بسبب الأسطر الجديدة أو الاقتباسات
-      responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
+      // تنظيف النص ليكون سطر واحد مناسب لأمر ماينكرافت
+      responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
 
-      // تنفيذ الأمر المخصص وتنبيه اللاعب
+      console.log(`📤 تنفيذ الأمر: /aibook ${sender} ${responseText}`);
+
+      // إرسال الكتاب وتنبيه اللاعب
       bot.chat(`/aibook ${sender} ${responseText}`);
       bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
-
     } catch (error) {
-      console.error("❌ Gemini API Error:", error.message);
+      console.error('❌ Gemini API Error:', error.message);
       bot.chat(`@${sender} ❌ Sar moshkel fi el AI.`);
     }
   });
 
   bot.on('end', () => setTimeout(createBot, 5000));
-  bot.on('error', (err) => console.error("❌ Bot error:", err.message));
+  bot.on('error', (err) => console.error('❌ Bot error:', err.message));
 }
 
 createBot();
