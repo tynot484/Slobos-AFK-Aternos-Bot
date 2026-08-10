@@ -1,85 +1,76 @@
 {
   "name": "AFK Bot",
-  "bot-account": {
-    "username": "Ana_Maradhon",
-    "password": "",
-    "type": "offline"
-  },
   "server": {
-    "ip": "node-de-free-01.tickhosting.com",
-    "port": 50589,
+    "ip": "YOUR_SERVER_IP",
+    "port": 25565,
     "version": "",
     "try-creative": false
   },
-  "position": {
-    "enabled": true,
-    "x": 0,
-    "y": 100,
-    "z": 0
+  "bot-account": {
+    "username": "AFK_Bot",
+    "password": "",
+    "type": "offline"
   },
   "utils": {
+    "auto-reconnect": true,
+    "auto-reconnect-delay": 3000,
+    "max-reconnect-delay": 30000,
     "auto-auth": {
+      "enabled": true,
+      "password": "YourPassword123"
+    },
+    "chat-messages": {
       "enabled": false,
-      "password": "chalol78"
+      "repeat": false,
+      "repeat-delay": 30,
+      "messages": ["Hello everyone!"]
     },
     "anti-afk": {
       "enabled": true,
-      "sneak": true
-    },
-    "chat-messages": {
-      "enabled": true,
-      "repeat": true,
-      "repeat-delay": 777,
-      "messages": [
-        "Ana Maradhon  Ana Maradhon"
-      ]
-    },
-    "chat-log": true,
-    "auto-reconnect": true,
-    "auto-reconnect-delay": 2000,
-    "max-reconnect-delay": 120000
+      "sneak": false
+    }
+  },
+  "position": {
+    "enabled": false,
+    "x": 0,
+    "y": 64,
+    "z": 0
   },
   "movement": {
     "enabled": true,
     "circle-walk": {
-      "enabled": true,
-      "radius": 4,
-      "speed": 3000
-    },
-    "look-around": {
-      "enabled": true,
-      "interval": 5000
+      "enabled": false,
+      "radius": 3,
+      "speed": 5000
     },
     "random-jump": {
       "enabled": true,
-      "interval": 10000
+      "interval": 30000
+    },
+    "look-around": {
+      "enabled": true,
+      "interval": 15000
     }
   },
   "modules": {
-    "avoidMobs": true,
-    "combat": true,
+    "avoidMobs": false,
+    "combat": false,
     "beds": false,
-    "chat": true,
-    "console-commands": true
+    "chat": true
   },
   "combat": {
-    "attack-mobs": true,
-    "auto-eat": true
+    "attack-mobs": false,
+    "auto-eat": false
   },
   "beds": {
-    "pick-up-day": false,
     "place-night": false
-  },
-  "discord": {
-    "enabled": false,
-    "webhookUrl": "YOUR_DISCORD_WEBHOOK_URL_HERE",
-    "events": {
-      "connect": true,
-      "disconnect": true,
-      "chat": false
-    }
   },
   "chat": {
     "respond": true
+  },
+  "gemini": {
+    "enabled": true,
+    "model": "gemini-1.5-flash",
+    "prefix": "g"
   }
 }
