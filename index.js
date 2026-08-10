@@ -67,36 +67,49 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  bot.on('messagestr', async (message) => {
-    // 1. تنظيف ألوان ماينكرافت المخفية
-    const cleanMsg = message.replace(/(§.|&[0-9a-fk-or])/gi, '').trim();
-
-    // تجاهل رسائل البوت نفسه
-    if (cleanMsg.includes(bot.username)) return;
-
-    // 2. البحث عن النقطتين `:`
-    const colonIndex = cleanMsg.indexOf(':');
+  bot.on('messagestr', async (fullMessage) => {
+    // 1. البحث عن النقطتين `:` التي تفصل بين جهة الاسم والسؤال
+    const colonIndex = fullMessage.indexOf(':');
     if (colonIndex === -1) return;
 
-    // 3. الجزء قبل النقطتين (مثل: "MEMBER tosty")
-    const beforeColon = cleanMsg.substring(0, colonIndex).trim();
+    const beforeColon = fullMessage.substring(0, colonIndex);
+    const afterColon = fullMessage.substring(colonIndex + 1).trim();
 
-    // 4. الجزء بعد النقطتين (مثل: "g hi")
-    const afterColon = cleanMsg.substring(colonIndex + 1).trim();
-
-    // 5. الشرط: أن يبدأ ما بعد النقطتين بـ g أو G ومسافة
+    // 2. التثبت من أن النص بعد النقطتين يبدأ بـ g أو G ومسافة
     if (!/^[gG]\s+/.test(afterColon)) return;
 
-    // 6. استخراج اسم اللاعب: أخذ الكلمة الواقعة بعد آخر مسافة قبل النقطتين
-    const lastSpaceIndex = beforeColon.lastIndexOf(' ');
-    const sender = lastSpaceIndex !== -1 
-      ? beforeColon.substring(lastSpaceIndex + 1).trim() 
-      : beforeColon;
-
-    // 7. استخراج السؤال الصافي
     const prompt = afterColon.replace(/^[gG]\s+/, '').trim();
 
-    if (!sender || !prompt || sender === bot.username) return;
+    // 3. تنظيف رموز الألوان المخفية من الجزء المخصص لاسم اللاعب والرتبة
+    let cleanBefore = beforeColon
+      .replace(/&#[0-9a-fA-F]{6}/g, '')
+      .replace(/[&§][0-9a-fk-orA-FK-OR]/gi, '')
+      .trim();
+
+    let sender = '';
+
+    // 4. التعامل مع كل حالة رتبة بشكل مستقل وحذفها مع مسافاتها
+    if (/MEMBER/i.test(cleanBefore)) {
+      sender = cleanBefore.replace(/MEMBER/i, '').trim();
+    } else if (/VIP\+/i.test(cleanBefore)) {
+      sender = cleanBefore.replace(/VIP\+/i, '').trim();
+    } else if (/VIP/i.test(cleanBefore)) {
+      sender = cleanBefore.replace(/VIP/i, '').trim();
+    } else if (/MVP\+/i.test(cleanBefore)) {
+      sender = cleanBefore.replace(/MVP\+/i, '').trim();
+    } else if (/MVP/i.test(cleanBefore)) {
+      sender = cleanBefore.replace(/MVP/i, '').trim();
+    } else {
+      sender = cleanBefore;
+    }
+
+    // استخراج اسم ماينكرافت النهائي الصافي (من 3 إلى 16 حرف)
+    const nameMatch = sender.match(/[a-zA-Z0-9_]{3,16}/);
+    if (nameMatch) {
+      sender = nameMatch[0];
+    }
+
+    if (!sender || !prompt || sender.toLowerCase() === bot.username.toLowerCase()) return;
     if (!aiModel) return;
 
     // مانع السبام (4 ثوانٍ بين الأسئلة)
@@ -107,16 +120,16 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 سؤال مقبوض من [${sender}]: ${prompt}`);
+    console.log(`🎯 تم استلام سؤال من [${sender}]: ${prompt}`);
 
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تنظيف النص لضمان إرسال الأمر
+      // تنظيف النص لضمان تنفيذ أمر /aibook
       responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
 
-      // إرسال الكتاب والتنبيه
+      // إرسال الكتاب وتنبيه اللاعب
       bot.chat(`/aibook ${sender} ${responseText}`);
       bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
 
