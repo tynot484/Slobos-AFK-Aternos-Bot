@@ -29,7 +29,7 @@ if (process.env.RENDER_EXTERNAL_URL) {
   }, 10 * 60 * 1000);
 }
 
-// 3. تهيئة Gemini AI (استخدام كتاب بالفرنكو لتفادي الكلمات المعكوسة عند البيدروك)
+// 3. تهيئة Gemini AI
 const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : null;
 let aiModel = null;
 
@@ -42,7 +42,7 @@ if (apiKey) {
 إجابتك ستظهر داخل كتاب (Written Book):
 1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi) لتعمل لدى لاعبي البيدروك والجافا دون مشاكل أحرف مقلوبة.
 2. استخدم الأرقام للأحرف (3=ع, 5=خ, 7=ح, 8=غ, 9=ق).
-3. اجعل الإجابة مقتضبة ومناسبة لصفحة كتاب في ماينكرافت.
+3. اجعل الإجابة مقتضبة ومباشرة ومناسبة لصفحة كتاب في ماينكرافت.
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
@@ -82,14 +82,16 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  // 5. استقبال الأسئلة وإرسال كتاب للسائل حصراً
+  // 5. استقبال الأسئلة وتحديد اسم السائل مهما كانت رتبته
   bot.on('messagestr', async (message) => {
+    // تجاهل رسائل البوت نفسه
     if (message.startsWith(bot.username) || message.includes(` ${bot.username}:`)) return;
 
-    const match = message.match(/(?:(?:\[.*?\]\s*|<)?([a-zA-Z0-9_]{3,16})>?\s*[:>]\s*)?[gG]\s+(.+)$/i);
+    // نمط يتخطى أي رتبة (MEMBER, VIP, VIP+, MVP, MVP+) ويستخرج اسم اللاعب مباشرة قبل : أو >
+    const match = message.match(/(?:.*?\b)?([a-zA-Z0-9_]{3,16})\s*[:>]\s*[gG]\s+(.+)$/i);
 
     if (match) {
-      const sender = match[1] || null;
+      const sender = match[1];
       const prompt = match[2]?.trim();
 
       if (!prompt || !sender) return;
@@ -111,10 +113,10 @@ function createBot() {
         const result = await aiModel.generateContent(prompt);
         const responseText = result.response.text().trim();
 
-        // تنفيذ إرسال الكتاب مباشرة للشخص السائل
+        // إرسال الكتاب مباشرة للاعب
         sendAnswerInBook(bot, sender, responseText);
-
-        // إشعار اللاعب في الشات
+        
+        // إرسال إشعار في الشات
         bot.chat(`@${sender} 📖 Ba3athtlek ktab fih el ijaba f inventory mta3ek!`);
 
       } catch (error) {
@@ -134,18 +136,16 @@ function createBot() {
   });
 }
 
-// دالة تنظيف النص وإرسال الكتاب لاسم اللاعب المباشر
+// دالة تنظيف النص وإعطاء الكتاب عبر أمر /give
 function sendAnswerInBook(bot, username, answerText) {
   if (!username) return;
 
-  // تنظيف النص لتفادي كسر أمر /give بسبب علامات التنصيص والسطور الجديدة
   const cleanText = answerText
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/\n/g, '\\n');
 
   const giveCommand = `/give ${username} written_book{title:"Reponse AI",author:"Gemini",pages=['{"text":"${cleanText}"}']} 1`;
-  
   bot.chat(giveCommand);
 }
 
