@@ -38,7 +38,7 @@ if (apiKey) {
 أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
 1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi).
 2. استخدم الأرقام للأحرف (3=ع, 5=خ, 7=ح, 8=غ, 9=ق).
-3. قدم إجابة كاملة، مفصلة، ومنظمة جداً للمستخدم (النص سيتم تقسيمه على صفحات كتاب تلقائياً).
+3. اجعل الإجابة مفيدة وواضحة ولا تتجاوز 180 حرفاً لكي تلائم أمر الكتاب في ماينكرافت.
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
@@ -63,59 +63,49 @@ function createBot() {
   });
 
   bot.on('messagestr', async (fullMessage) => {
-    console.log(`💬 [RAW CHAT]: "${fullMessage}"`);
-
-    // 1. تنظيف الألوان والأكواد المخفية
+    // 1. تنظيف ألوان وأكواد ماينكرافت الهيكس والأقواس
     let cleanMsg = fullMessage
       .replace(/&#[0-9a-fA-F]{6}/g, '')
       .replace(/&x(&[0-9a-fA-F]){6}/gi, '')
       .replace(/[&§][0-9a-fk-orA-FK-OR]/gi, '')
+      .replace(/[<>[\]()]/g, ' ')
       .trim();
 
     // تجاهل رسائل البوت نفسه
     if (cleanMsg.toLowerCase().includes(bot.username.toLowerCase())) return;
 
-    // 2. البحث عن مكان النقطتين `:`
+    // 2. البحث عن النقطتين `:`
     const colonIndex = cleanMsg.indexOf(':');
     if (colonIndex === -1) return;
 
     const beforeColon = cleanMsg.substring(0, colonIndex).trim();
     const afterColon = cleanMsg.substring(colonIndex + 1).trim();
 
-    // 3. التحقق من أن الرسالة تبدأ بـ g أو G ومسافة
+    // 3. التحقق من وجود حرف g أو G متبوعاً بمسافة بعد النقطتين
     const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
     if (!matchG) return;
 
     const prompt = matchG[1].trim();
     if (!prompt) return;
 
-    // 4. جلب قائمة أسماء اللاعبين المتصلين بالكامل عبر bot.players
-    const onlinePlayers = Object.keys(bot.players).filter(
-      (name) => name.toLowerCase() !== bot.username.toLowerCase()
-    );
+    // 4. استخراج اسم اللاعب مباشرة (الكلمة الأخيرة قبل النقطتين)
+    const words = beforeColon.split(/\s+/).filter((w) => w.length > 0);
+    const rawLastWord = words.pop();
+    const sender = rawLastWord ? rawLastWord.replace(/[^a-zA-Z0-9_.]/g, '') : null;
 
-    // 5. البحث عن أي اسم متصل موجود داخل النص الواقع قبل النقطتين
-    let sender = onlinePlayers.find((playerName) => {
-      // فحص وجود اسم اللاعب المتصل داخل النص
-      const regex = new RegExp(`\\b${playerName.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i');
-      return regex.test(beforeColon);
-    });
+    console.log(`🔍 [تحليل الرسالة] المرسل: "${sender}" | السؤال: "${prompt}"`);
 
-    // احتياطي: إذا لم يتعرف عليه من القائمة لأي سبب، يأخذ الكلمة الأخيرة قبل النقطتين
-    if (!sender) {
-      const words = beforeColon.split(/\s+/).filter((w) => w.length > 0);
-      const rawLastWord = words.pop();
-      sender = rawLastWord ? rawLastWord.replace(/[^a-zA-Z0-9_.]/g, '') : null;
-    }
-
-    if (!sender || sender.length < 2) {
-      console.log(`⚠️ لم يتم التعرف على مرسل الرسالة من قائمة اللاعبين المتصلين.`);
+    if (!sender || sender.length < 2 || sender.toLowerCase() === bot.username.toLowerCase()) {
+      console.log(`⚠️ اسم المرسل غير صالح: "${sender}"`);
       return;
     }
 
-    if (!aiModel) return;
+    if (!aiModel) {
+      console.error("❌ مفتاح Gemini API غير متصل!");
+      return;
+    }
 
-    // مانع السبام (4 ثوانٍ بين كل سؤال)
+    // مانع السبام (4 ثوانٍ بين الأسئلة)
     const now = Date.now();
     if (now - lastRequestTime < 4000) {
       bot.chat(`@${sender} ⚠️ Stanna 4 thawani bin kol so2al.`);
@@ -123,18 +113,21 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 [لاعب متصل مؤكد]: "${sender}" | السؤال: "${prompt}"`);
-
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تنظيف النص ليكون سطر واحد مناسب لأمر ماينكرافت
+      // تنظيف النص ليكون سطر واحد خالي من الأسطر الجديدة والاقتباسات
       responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
 
-      console.log(`📤 تنفيذ الأمر: /aibook ${sender} ${responseText}`);
+      // قص النص إذا تجاوز 200 حرف لضمان عدم تجاوز حد أومار ماينكرافت (256 حرف)
+      if (responseText.length > 200) {
+        responseText = responseText.substring(0, 197) + '...';
+      }
 
-      // إرسال الكتاب وتنبيه اللاعب
+      console.log(`📤 إرسال الأمر: /aibook ${sender} ${responseText}`);
+
+      // إرسال الكتاب وتنبيه اللاعب في الشات
       bot.chat(`/aibook ${sender} ${responseText}`);
       bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory fih l'ijaba kemla!`);
     } catch (error) {
