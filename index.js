@@ -32,9 +32,8 @@ let aiModel = null;
 
 if (apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
-  // استخدام الموديل المعتمد والرسمي
   aiModel = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-lite",
+    model: "gemini-2.5-flash",
     systemInstruction: `
 أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
 1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi).
@@ -66,7 +65,7 @@ function createBot() {
   bot.on('messagestr', async (fullMessage) => {
     console.log(`💬 [شات خام]: "${fullMessage}"`);
 
-    // 1. تنظيف شامل لأكواد الألوان المخفية والرمز | والأقواس
+    // 1. تنظيف الألوان والرموز الغريبة للحفاظ على سلامة النص
     const cleanMsg = fullMessage
       .replace(/&#[0-9a-fA-F]{6}/gi, '')
       .replace(/&x(&[0-9a-fA-F]){6}/gi, '')
@@ -78,27 +77,21 @@ function createBot() {
     // تجاهل رسائل البوت نفسه
     if (cleanMsg.toLowerCase().includes(bot.username.toLowerCase())) return;
 
-    // 2. البحث عن النقطتين `:`
-    const colonIndex = cleanMsg.indexOf(':');
-    if (colonIndex === -1) return;
+    // 2. الفحص بالصيغة الجديدة: (الاسم) ثم (g أو G) ثم (السؤال)
+    // مثال: tosty g hi  أو  B_tosty G kifash nasna3 saif
+    const match = cleanMsg.match(/\b([a-zA-Z0-9_.]+)\s+[gG]\s+(.+)$/i);
+    if (!match) return; // إذا لم تكن الصيغة متطابقة يتجاهل الرسالة
 
-    const beforeColon = cleanMsg.substring(0, colonIndex).trim();
-    const afterColon = cleanMsg.substring(colonIndex + 1).trim();
+    const sender = match[1].trim(); // اسم اللاعب المستخرج
+    const prompt = match[2].trim(); // السؤال المستخرج
 
-    // 3. التحقق من وجود g أو G ومسافة بعد النقطتين
-    const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
-    if (!matchG) return;
+    if (!sender || sender.length < 2 || !prompt) return;
+    if (sender.toLowerCase() === bot.username.toLowerCase()) return;
 
-    const prompt = matchG[1].trim();
-    if (!prompt) return;
-
-    // 4. استخراج اسم اللاعب (الكلمة الأخيرة الصافية قبل النقطتين)
-    const words = beforeColon.split(' ').filter(w => w.length > 0);
-    const rawName = words.pop();
-    const sender = rawName ? rawName.replace(/[^a-zA-Z0-9_.]/g, '') : null;
-
-    if (!sender || sender.length < 2 || sender.toLowerCase() === bot.username.toLowerCase()) return;
-    if (!aiModel) return;
+    if (!aiModel) {
+      console.error("❌ مفتاح Gemini API غير متصل!");
+      return;
+    }
 
     // مانع السبام (4 ثوانٍ بين الأسئلة)
     const now = Date.now();
@@ -108,16 +101,16 @@ function createBot() {
     }
     lastRequestTime = now;
 
-    console.log(`🎯 [طلب مقبوض] المرسل: "${sender}" | السؤال: "${prompt}"`);
+    console.log(`🎯 [طلب ناجح] اللاعب: "${sender}" | السؤال: "${prompt}"`);
 
-    // إرسال تنبيه في الشات فور التعرف على السؤال
+    // إرسال رد سريع في الشات لتأكيد الاستلام
     bot.chat(`@${sender} ⏳ Ja3li njawbek...`);
 
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تجهيز النص ليكون سطر واحد مناسب لأوامر ماينكرافت
+      // تنظيف النص ليصبح سطر واحد مناسب لأمر ماينكرافت
       responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
 
       console.log(`🚀 [الأمر المنفذ]: /aibook ${sender} ${responseText}`);
