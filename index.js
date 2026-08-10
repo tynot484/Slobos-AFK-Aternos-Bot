@@ -3,7 +3,6 @@ const mineflayer = require('mineflayer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 
-// 1. تحميل الإعدادات من settings.json
 let settings = {};
 try {
   settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
@@ -11,7 +10,6 @@ try {
   console.error('❌ فشل في قراءة settings.json:', err.message);
 }
 
-// 2. إعداد خادم الويب (Express) لـ Render
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -29,7 +27,6 @@ if (process.env.RENDER_EXTERNAL_URL) {
   }, 10 * 60 * 1000);
 }
 
-// 3. تهيئة Gemini AI
 const apiKey = process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.trim() : null;
 let aiModel = null;
 
@@ -38,26 +35,22 @@ if (apiKey) {
   aiModel = genAI.getGenerativeModel({
     model: "gemini-3.5-flash-lite",
     systemInstruction: `
-أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت (Java & Bedrock).
-إجابتك ستظهر داخل كتاب (Written Book):
-1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi) لتعمل لدى لاعبي البيدروك والجافا دون مشاكل أحرف مقلوبة.
+أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
+1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi).
 2. استخدم الأرقام للأحرف (3=ع, 5=خ, 7=ح, 8=غ, 9=ق).
-3. اجعل الإجابة مقتضبة ومباشرة ومناسبة لصفحة كتاب في ماينكرافت.
+3. اجعل الإجابة مختصرة جداً (سطرين أو ثلاثة) لتناسب صفحة الكتاب.
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
-} else {
-  console.warn("⚠️ لم يتم العثور على GEMINI_API_KEY في متغيرات البيئة!");
 }
 
 let lastRequestTime = 0;
 
-// 4. إنشاء وتشغيل البوت
 function createBot() {
   const bot = mineflayer.createBot({
     host: settings.server?.ip || 'localhost',
     port: settings.server?.port || 25565,
-    username: settings['bot-account']?.username || 'AFK_Bot',
+    username: settings['bot-account']?.username || 'Ana_Maradhon',
     password: settings['bot-account']?.password || undefined,
     version: settings.server?.version || false,
     auth: settings['bot-account']?.type === 'microsoft' ? 'microsoft' : 'offline'
@@ -82,25 +75,18 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  // 5. استقبال الأسئلة وتحديد اسم السائل مهما كانت رتبته
   bot.on('messagestr', async (message) => {
-    // تجاهل رسائل البوت نفسه
-    if (message.startsWith(bot.username) || message.includes(` ${bot.username}:`)) return;
+    if (message.startsWith(bot.username)) return;
 
-    // نمط يتخطى أي رتبة (MEMBER, VIP, VIP+, MVP, MVP+) ويستخرج اسم اللاعب مباشرة قبل : أو >
-    const match = message.match(/(?:.*?\b)?([a-zA-Z0-9_]{3,16})\s*[:>]\s*[gG]\s+(.+)$/i);
+    // استخراج اسم اللاعب والسؤال
+    const match = message.match(/([a-zA-Z0-9_]{3,16})\s*[:>]\s*[gG]\s+(.+)$/i);
 
     if (match) {
       const sender = match[1];
       const prompt = match[2]?.trim();
 
-      if (!prompt || !sender) return;
-      if (!settings.gemini?.enabled) return;
-
-      if (!aiModel) {
-        bot.chat("⚠️ Gemini API Key غير مضاف في Render.");
-        return;
-      }
+      if (!prompt || !sender || sender === bot.username) return;
+      if (!settings.gemini?.enabled || !aiModel) return;
 
       const now = Date.now();
       if (now - lastRequestTime < 4000) {
@@ -111,13 +97,16 @@ function createBot() {
 
       try {
         const result = await aiModel.generateContent(prompt);
-        const responseText = result.response.text().trim();
+        let responseText = result.response.text().trim();
 
-        // إرسال الكتاب مباشرة للاعب
-        sendAnswerInBook(bot, sender, responseText);
+        // تنظيف النص من السطور الجديدة والرموز التي تخرب الأمر
+        responseText = responseText.replace(/\r?\n|\r/g, " ").replace(/"/g, "'");
+
+        // إرسال الكتاب باستخدام أمر Skript المخصص
+        bot.chat(`/aibook ${sender} ${responseText}`);
         
-        // إرسال إشعار في الشات
-        bot.chat(`@${sender} 📖 Ba3athtlek ktab fih el ijaba f inventory mta3ek!`);
+        // تنبيه اللاعب في الشات
+        bot.chat(`@${sender} 📖 Ba3athtlek ktab f inventory!`);
 
       } catch (error) {
         console.error("❌ Gemini API Error:", error.message);
@@ -126,27 +115,8 @@ function createBot() {
     }
   });
 
-  bot.on('end', () => {
-    console.log("🔄 تم قطع الاتصال، جاري إعادة الاتصال خلال 5 ثوانٍ...");
-    setTimeout(createBot, 5000);
-  });
-
-  bot.on('error', (err) => {
-    console.error("❌ Bot error:", err.message);
-  });
-}
-
-// دالة تنظيف النص وإعطاء الكتاب عبر أمر /give
-function sendAnswerInBook(bot, username, answerText) {
-  if (!username) return;
-
-  const cleanText = answerText
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n');
-
-  const giveCommand = `/give ${username} written_book{title:"Reponse AI",author:"Gemini",pages=['{"text":"${cleanText}"}']} 1`;
-  bot.chat(giveCommand);
+  bot.on('end', () => setTimeout(createBot, 5000));
+  bot.on('error', (err) => console.error("❌ Bot error:", err.message));
 }
 
 createBot();
