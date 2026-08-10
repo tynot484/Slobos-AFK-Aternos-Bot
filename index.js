@@ -78,16 +78,15 @@ function createBot() {
     }
   }, settings.movement?.['random-jump']?.interval || 30000);
 
-  // 5. استقبال الأوامر والاستجابة عبر Gemini AI
-    // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
+  // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
   bot.on('messagestr', async (message) => {
-    // إهمال الرسائل الصادرة من البوت نفسه لمنع التكرار
-    if (message.includes(bot.username)) return;
-
     // التعرف على g أو G بعد اسم اللاعب ورتبته (مثل: MEMBER tosty: g hello) أو في بداية السطر
     const match = message.match(/:\s*[gG]\s+(.+)$/) || message.match(/^[gG]\s+(.+)$/);
 
     if (match) {
+      // تجاهل الرسالة فقط إذا كانت صادرة من البوت نفسه كـ مرسل
+      if (message.startsWith(bot.username) || message.includes(` ${bot.username}:`)) return;
+
       const prompt = match[1].trim();
       if (!prompt) return;
 
@@ -111,7 +110,6 @@ function createBot() {
       }
     }
   });
-  
 
   // إعادة الاتصال التلقائي عند قطع الاتصال
   bot.on('end', () => {
