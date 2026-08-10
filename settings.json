@@ -16,7 +16,7 @@
     "auto-reconnect-delay": 3000,
     "max-reconnect-delay": 30000,
     "auto-auth": {
-      "enabled": true,
+      "enabled": false,
       "password": "YourPassword123"
     },
     "chat-messages": {
