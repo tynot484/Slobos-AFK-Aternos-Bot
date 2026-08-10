@@ -31,7 +31,6 @@ if (process.env.RENDER_EXTERNAL_URL) {
 }
 
 // 3. تهيئة الذكاء الاصطناعي Gemini AI
-// 3. تهيئة الذكاء الاصطناعي Gemini AI
 const apiKey = process.env.GEMINI_API_KEY;
 let aiModel = null;
 
@@ -45,7 +44,6 @@ if (apiKey) {
 } else {
   console.warn("⚠️ لم يتم العثور على GEMINI_API_KEY في متغيرات البيئة!");
 }
-
 
 // 4. إنشاء وتشغيل بوت ماينكرافت
 function createBot() {
@@ -81,7 +79,6 @@ function createBot() {
   }, settings.movement?.['random-jump']?.interval || 30000);
 
   // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
-    // 5. استقبال الأوامر والاستجابة عبر Gemini AI (يدعم رتب الشات والسيرفرات المعدلة)
   bot.on('messagestr', async (message) => {
     const match = message.match(/:\s*[gG]\s+(.+)$/) || message.match(/^[gG]\s+(.+)$/);
 
@@ -110,11 +107,8 @@ function createBot() {
         const shortError = error.message.replace(/[\r\n]+/g, ' ').slice(0, 100);
         bot.chat(`❌ ${shortError}`);
       }
-
-      }
     }
   });
-
 
   // إعادة الاتصال التلقائي عند قطع الاتصال
   bot.on('end', () => {
