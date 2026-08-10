@@ -33,7 +33,7 @@ let aiModel = null;
 if (apiKey) {
   const genAI = new GoogleGenerativeAI(apiKey);
   aiModel = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
+    model: "gemini-3.5-flash-lite",
     systemInstruction: `
 أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
 1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi).
