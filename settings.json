@@ -29,9 +29,9 @@
     "chat-messages": {
       "enabled": true,
       "repeat": true,
-      "repeat-delay": 120,
+      "repeat-delay": 777,
       "messages": [
-        ""
+        "Ana Maradhon  Ana Maradhon"
       ]
     },
     "chat-log": true,
