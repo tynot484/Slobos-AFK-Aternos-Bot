@@ -38,7 +38,7 @@ if (apiKey) {
 أنت بوت في سيرفر ماينكرافت. 
 القواعد الأساسية الصارمة:
 1. أجب **فقط** على ما يسأله اللاعب. لا تقترح أبداً أشياء لم يطلبها، لا تقل "هل تريد معرفة كذا؟"، لا ترحب به، ولا تعرض خدماتك. ادخل في صلب الموضوع مباشرة.
-2. كن مبدعاً ومفصلاً. إذا سألك قصة أو شرح طويل، خذ راحتك في الإطالة (حتى لو كانت الإجابة طويلة جداً).
+2. كن مبدعاً ومفصلاً. إذا سألك قصة أو شرح طويل، خذ راحتك في الإطالة.
 3. تحدث **فقط** باللهجة التونسية الدارجة بحروف لاتينية (Franco / Arabizi). 
 4. لتحسين لغتك التونسية، استخدم هذه المصطلحات بشكل طبيعي: 
    - chnowa (ماذا) / kifech (كيف) / 3lech (لماذا) / wa9tech (متى) / win (أين)
@@ -56,12 +56,14 @@ if (apiKey) {
    - الفعاليات: Pinata Party (بعد 250 تصويت).
 `
   });
-  console.log("🤖 تم تفعيل الذكاء الاصطناعي بنجاح مع تحسينات اللهجة التونسية!");
+  console.log("🤖 تم تفعيل الذكاء الاصطناعي بنجاح!");
 } else {
   console.error("❌ لم يتم العثور على GEMINI_API_KEY في البيئة!");
 }
 
 let lastRequestTime = 0;
+// ذاكرة مؤقتة لحفظ أجزاء الإجابات المتبقية لكل لاعب
+const pendingResponses = new Map();
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -100,9 +102,30 @@ function createBot() {
 
     const sender = match[1].trim();
     let prompt = match[2].trim();
+    const lowerSender = sender.toLowerCase();
 
-    if (sender.toLowerCase() === bot.username.toLowerCase()) return;
-    if (prompt.length < 2) return;
+    if (lowerSender === bot.username.toLowerCase()) return;
+    if (prompt.length < 1) return;
+
+    // كلمات الموافقة على المتابعة
+    const continuationWords = ['ey', 'kamel', 'kemmel', 'oui', 'yes', '1', 'zida', 'zid', 'nkamel'];
+
+    // إذا كان لللاعب إجابة معلقة وطلب التكملة
+    if (pendingResponses.has(lowerSender) && continuationWords.includes(prompt.toLowerCase())) {
+      const chunks = pendingResponses.get(lowerSender);
+      const nextChunk = chunks.shift();
+
+      bot.chat(`/aibook ${sender} ${nextChunk}`);
+
+      if (chunks.length > 0) {
+        setTimeout(() => {
+          bot.chat(`${sender} theb nkamel?`);
+        }, 1000);
+      } else {
+        pendingResponses.delete(lowerSender);
+      }
+      return;
+    }
 
     if (!aiModel) return;
 
@@ -111,10 +134,10 @@ function createBot() {
     }
 
     const now = Date.now();
-    if (now - lastRequestTime < 4000) return;
+    if (now - lastRequestTime < 3000) return;
     lastRequestTime = now;
 
-    console.log(`🎯 [طلب مقبول] المرسل: "${sender}" | السؤال: "${prompt}"`);
+    console.log(`🎯 [طلب جديد] المرسل: "${sender}" | السؤال: "${prompt}"`);
     
     bot.chat(`${sender} ⏳ la7dha bark...`);
 
@@ -124,10 +147,37 @@ function createBot() {
 
       responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
 
-      console.log(`🚀 [يتم إرسال الكتاب إلى]: ${sender}`);
+      // تقسيم الإجابة الطويلة إلى أجزاء (200 حرف لكل جزء)
+      const MAX_LENGTH = 200; 
+      const chunks = [];
+      let words = responseText.split(' ');
+      let currentChunk = '';
 
-      // إرسال الأمر للسيرفر لصناعة الكتاب فقط دون إخبار اللاعب في الشات
-      bot.chat(`/aibook ${sender} ${responseText}`);
+      for (let word of words) {
+        if ((currentChunk + word).length > MAX_LENGTH) {
+          chunks.push(currentChunk.trim());
+          currentChunk = word + ' ';
+        } else {
+          currentChunk += word + ' ';
+        }
+      }
+      if (currentChunk.trim().length > 0) {
+        chunks.push(currentChunk.trim());
+      }
+
+      // إرسال الجزء الأول فقط
+      const firstChunk = chunks.shift();
+      bot.chat(`/aibook ${sender} ${firstChunk}`);
+
+      // إذا تبقت أجزاء أخرى، يتم حفظها وسؤال اللاعب
+      if (chunks.length > 0) {
+        pendingResponses.set(lowerSender, chunks);
+        setTimeout(() => {
+          bot.chat(`${sender} theb nkamel?`);
+        }, 1200);
+      } else {
+        pendingResponses.delete(lowerSender);
+      }
 
     } catch (error) {
       console.error("❌ Gemini API Error:", error.message);
