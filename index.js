@@ -35,10 +35,17 @@ if (apiKey) {
   aiModel = genAI.getGenerativeModel({
     model: "gemini-3.5-flash-lite",
     systemInstruction: `
-أنت مساعد ذكاء اصطناعي داخل سيرفر ماينكرافت.
-1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi).
-2. استخدم الأرقام للأحرف (3=ع, 5=خ, 7=ح, 8=غ, 9=ق).
-3. قدم إجابة كاملة ومفصلة.
+أنت مساعد ذكاء اصطناعي ومرشد داخل سيرفر ماينكرافت.
+1. اكتب دائماً بالدارجة التونسية بالفرنكو (Franco-Tunisian / Arabizi) واستخدم الأرقام (3=ع, 5=خ, 7=ح, 8=غ, 9=ق).
+2. إجاباتك يجب أن تكون دقيقة، قصيرة، ومفيدة جداً بدون مقدمات طويلة.
+3. أنت تعرف كل شيء عن السيرفر بناءً على هذه المعلومات:
+- الأوامر الأساسية: /shop للبيع والشراء, /ah للمزاد, /rtp للانتقال العشوائي, /jobs للوظائف, /teams للفرق[cite: 2].
+- الرتب (Ranks): VIP (0.99$), VIP+ (3.49$), MVP (6.99$), MVP+ (12.99$). كل رتبة تعطي خصائص مثل /hat, /enderchest, وأماكن بيوت (homes) إضافية[cite: 2, 3].
+- حماية الأراضي: أوامر /ps مثل /ps add, /ps remove, /ps hide[cite: 2].
+- منطقة الـ AFK: اللاعب يربح AFK Shards بنسبة 100%، أو 1000$ (25%)، أو طيران لـ 60 ثانية (10%). مسموح بحسابات غير محدودة هنا[cite: 3].
+- الـ Wild Forge (الحداد): يبيع دروع وأسلحة قوية بأسعار بين 4 و 10 مليون دولار (مثل Wild Helmet بـ 5M، و Wild Elytra بـ 10M)[cite: 3].
+- الصناديق (Crates): Diamond, Gold, Emerald, Vote, Monthly[cite: 3].
+- الفعاليات: Pinata Party تبدأ بعد وصول السيرفر لـ 250 تصويت[cite: 3].
 `
   });
   console.log("🤖 تم تفعيل الذكاء الاصطناعي Gemini بنجاح!");
@@ -60,10 +67,12 @@ function createBot() {
 
   bot.on('spawn', () => {
     console.log(`✅ دخل البوت إلى السيرفر باسم: ${bot.username}`);
+    // إيقاف فيزياء اللعبة لتقليل استهلاك الرام ومنع طرد البوت من الاستضافة
+    bot.physicsEnabled = false; 
   });
 
   bot.on('messagestr', async (fullMessage) => {
-    // 1. تنظيف النص من الألوان والأقواس والرموز
+    // تنظيف النص
     const cleanMsg = fullMessage
       .replace(/&#[0-9a-fA-F]{6}/gi, '')
       .replace(/&x(&[0-9a-fA-F]){6}/gi, '')
@@ -72,71 +81,60 @@ function createBot() {
       .replace(/\s+/g, ' ')
       .trim();
 
-    // تجاهل رسائل البوت نفسه
     if (cleanMsg.toLowerCase().includes(bot.username.toLowerCase())) return;
 
-    let sender = null;
-    let prompt = null;
-
-    // الصيغة الأولى: الشات العادي (MEMBER tosty: g hi)
+    let textToParse = cleanMsg;
     const colonIndex = cleanMsg.indexOf(':');
     if (colonIndex !== -1) {
-      const beforeColon = cleanMsg.substring(0, colonIndex).trim();
-      const afterColon = cleanMsg.substring(colonIndex + 1).trim();
-
-      const matchG = afterColon.match(/^[gG]\s+(.+)$/i);
-      if (matchG) {
-        prompt = matchG[1].trim();
-        const words = beforeColon.split(' ').filter(w => w.length > 0);
-        const rawName = words.pop();
-        sender = rawName ? rawName.replace(/[^a-zA-Z0-9_.]/g, '') : null;
-      }
-    } 
-
-    // الصيغة الثانية: كتابة الاسم المباشرة (tosty g hi)
-    if (!prompt) {
-      const explicitMatch = cleanMsg.match(/\b([a-zA-Z0-9_.]+)\s+[gG]\s+(.+)$/i);
-      if (explicitMatch) {
-        sender = explicitMatch[1].trim();
-        prompt = explicitMatch[2].trim();
-      }
+      textToParse = cleanMsg.substring(colonIndex + 1).trim();
     }
 
-    if (!sender || sender.length < 2 || !prompt) return;
+    // البحث عن صيغة: اسم-سؤال (بدون مسافات حول الناقص)
+    const match = textToParse.match(/^([a-zA-Z0-9_.]+)-(.+)$/i);
+    if (!match) return;
+
+    const sender = match[1].trim();
+    let prompt = match[2].trim();
+
     if (sender.toLowerCase() === bot.username.toLowerCase()) return;
+    if (prompt.length < 2) return;
 
     if (!aiModel) {
-      bot.chat(`${sender} ❌ GEMINI_API_KEY mosh mawjoud f Render!`);
+      bot.chat(`${sender} ❌ Gemini API mosh mawjoud!`);
       return;
     }
 
-    // مانع السبام (4 ثوانٍ بين الأسئلة)
+    // تقصير السؤال إذا كان طويلاً جداً لحماية السيرفر من الكراش (Tickhosting Limit)
+    if (prompt.length > 250) {
+      prompt = prompt.substring(0, 250);
+    }
+
+    // مانع السبام
     const now = Date.now();
     if (now - lastRequestTime < 4000) {
-      bot.chat(`${sender} ⚠️ Stanna 4 thawani bin kol so2al.`);
-      return;
+      return; // تجاهل الرد تماماً لتخفيف الضغط
     }
     lastRequestTime = now;
 
     console.log(`🎯 [طلب مقبول] المرسل: "${sender}" | السؤال: "${prompt}"`);
-    bot.chat(`${sender} ⏳ Ja3li njawbek...`);
+    
+    // الرد المختصر الجديد
+    bot.chat(`${sender} ⏳ la7dha bark...`);
 
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تنظيف النص ليكون سطر واحد خالي من الأسطر الجديدة والاقتباسات
       responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
 
       console.log(`🚀 [الأمر المنفذ]: /aibook ${sender} ${responseText}`);
 
-      // إرسال الأمر وتنبيه اللاعب بدون الـ @
       bot.chat(`/aibook ${sender} ${responseText}`);
       bot.chat(`${sender} 📖 Ba3athtlek ktab f inventory!`);
 
     } catch (error) {
       console.error("❌ Gemini API Error:", error.message);
-      bot.chat(`${sender} ❌ AI Error: ${error.message.substring(0, 40)}`);
+      bot.chat(`${sender} ❌ AI Error: mochkla sghira, 3awed.`);
     }
   });
 
