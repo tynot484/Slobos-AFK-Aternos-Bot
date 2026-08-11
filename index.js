@@ -97,7 +97,7 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
 
 تنسيق الواجهات والأدوات (Visual Layouts):
 11. **طاولة الصنع (Crafting Table):**
-   ارسم شبكة 3x3. الأماكن الفارغة اتركها فارغة بمسافات `[       ]` فقط (يمنع كتابة Air أو كلمة هواء).
+   ارسم شبكة 3x3. الأماكن الفارغة اتركها فارغة بمسافات [       ] فقط (يمنع كتابة Air أو كلمة هواء).
    مثال لصنع فاس خشب (Pioche 5chab):
    [ 5chab ] [ 5chab ] [ 5chab ]
    [       ] [  3oud ] [       ]
