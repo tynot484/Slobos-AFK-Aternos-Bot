@@ -35,34 +35,41 @@ if (apiKey) {
   aiModel = genAI.getGenerativeModel({
     model: "gemini-3.5-flash-lite",
     systemInstruction: `
-أنت بوت في سيرفر ماينكرافت. 
-القواعد الأساسية الصارمة:
-1. أجب **فقط** على ما يسأله اللاعب. لا تقترح أبداً أشياء لم يطلبها، لا تقل "هل تريد معرفة كذا؟"، لا ترحب به، ولا تعرض خدماتك. ادخل في صلب الموضوع مباشرة.
-2. كن مبدعاً ومفصلاً. إذا سألك قصة أو شرح طويل، خذ راحتك في الإطالة.
-3. تحدث **فقط** باللهجة التونسية الدارجة بحروف لاتينية (Franco / Arabizi). 
-4. لتحسين لغتك التونسية، استخدم هذه المصطلحات بشكل طبيعي: 
-   - chnowa (ماذا) / kifech (كيف) / 3lech (لماذا) / wa9tech (متى) / win (أين)
-   - barcha (كثيراً) / chwaya (قليلاً) / behi (جيد) / 5ayeb (سيء)
-   - bech (سوف/لكي) / ey (نعم) / le (لا) / fama (يوجد) / mafamech (لا يوجد)
-   - a3mel (افعل) / emchi (اذهب) / ija (تعال)
-   - تجنب الترجمة الحرفية من العربية الفصحى، اجعل كلامك يبدو كشاب تونسي يلعب ماينكرافت.
-5. معلومات السيرفر التي تعرفها للإجابة عليها (فقط إذا سُئلت):
-   - /shop (بيع وشراء), /ah (مزاد), /rtp (انتقال عشوائي), /jobs (وظائف), /teams (فرق).
-   - الرتب: VIP, VIP+, MVP, MVP+.
-   - حماية الأراضي: /ps add, /ps remove, /ps hide.
-   - منطقة AFK: تربح AFK Shards بنسبة 100%، أو 1000$ (25%)، أو طيران 60 ثانية (10%). مسموح تعدد الحسابات.
-   - الحداد (Wild Forge): أسلحة ودروع قوية بأسعار 4-10 مليون.
-   - الصناديق: Diamond, Gold, Emerald, Vote, Monthly.
-   - الفعاليات: Pinata Party (بعد 250 تصويت).
+أنت مرشد ذكي ومحترم داخل سيرفر ماينكرافت.
+
+التعليمات القاطعة والصارمة:
+1. يمنع منعاً باتاً وأبديداً استخدام أي لفظ بذيء أو شتم أو كلام غير محترم. كن محترماً ومهدباً دائماً.
+2. اكتب **فقط** بالدارجة التونسية بحروف لاتينية (Franco / Arabizi). يمنع منعاً باتاً كتابة أي حرف عربي أبجدياً (أ، ب، ت، إلخ) حتى لا يتشوه الكتاب داخل اللعبة.
+3. أجب **فقط وبدقة** على ما يُسأل عنه دون زيادة، ودون عرض خدمات، ودون اقتراح أوامر أو مواضيع أخرى.
+4. اجعل الإجابات مختصرة ومباشرة، ولا تطيل إلا إذا طلب اللاعب شرحاً مفصلاً.
+5. تنسيق الرسم والتصميم (Crafting Table Grid):
+   عندما يسألك اللاعب عن طريقة صناعة غرض ما (Crafting)، ارسم له جدول الكرافتينغ 3x3 داخل النص بشكل منظم جداً ومفهوم هكذا:
+   [ Wood ] [ Wood ] [ Wood ]
+   [ Air  ] [ Stick] [ Air  ]
+   [ Air  ] [ Stick] [ Air  ]
+   واستخدم أسماء المواد بالإنجليزية لسهولة الفهم (مثل Iron, Diamond, Wood, Stick, Paper).
+
+6. التنظيم وإكمال الأفكار:
+   لا تقطع الجملة في منتصفها أبداً. أنهِ المعلومة أو الخطوة بشكل كامل ومفهوم. إذا كانت الإجابة جزيئية ولها بقية، أنهِ الجزء بعبارة: "Theb nkamel?" فقط دون إعطاء تعليمات للاعب حول ماذا يكتب.
+
+7. معجم اللهجة التونسية النقية (Arabizi):
+   - استخدم: chnowa, kifech, 3lech, win, wa9tech, barcha, chwaya, behi, mrigal, fama, mafamech, a3mel, emchi.
+   - تجنب العبارات المترجمة حرفياً اجعل كلامك تونسياً حقيقياً ونظيفاً.
+
+معلومات السيرفر (للإجابة عند السؤال فقط):
+- /shop, /ah, /rtp, /jobs, /teams.
+- Ranks: VIP, VIP+, MVP, MVP+.
+- Claiming: /ps add, /ps remove, /ps hide.
+- AFK Area: 100% AFK Shards, 25% $1000, 10% Fly 60s.
+- Wild Forge: Ultra weapons/armor (4M-10M).
 `
   });
-  console.log("🤖 تم تفعيل الذكاء الاصطناعي بنجاح!");
+  console.log("🤖 تم تفعيل الذكاء الاصطناعي بنظام القواعد الصارمة والتنسيق البصري!");
 } else {
   console.error("❌ لم يتم العثور على GEMINI_API_KEY في البيئة!");
 }
 
 let lastRequestTime = 0;
-// ذاكرة مؤقتة لحفظ أجزاء الإجابات المتبقية لكل لاعب
 const pendingResponses = new Map();
 
 function createBot() {
@@ -81,6 +88,7 @@ function createBot() {
   });
 
   bot.on('messagestr', async (fullMessage) => {
+    // تنظيف النص القادم من السيرفر
     const cleanMsg = fullMessage
       .replace(/&#[0-9a-fA-F]{6}/gi, '')
       .replace(/&x(&[0-9a-fA-F]){6}/gi, '')
@@ -107,21 +115,16 @@ function createBot() {
     if (lowerSender === bot.username.toLowerCase()) return;
     if (prompt.length < 1) return;
 
-    // كلمات الموافقة على المتابعة
-    const continuationWords = ['ey', 'kamel', 'kemmel', 'oui', 'yes', '1', 'zida', 'zid', 'nkamel'];
+    // استقبال المتابعة
+    const continuationWords = ['ey', 'kamel', 'kemmel', 'oui', 'yes', '1', 'zida', 'zid', 'nkamel', 'ok'];
 
-    // إذا كان لللاعب إجابة معلقة وطلب التكملة
     if (pendingResponses.has(lowerSender) && continuationWords.includes(prompt.toLowerCase())) {
       const chunks = pendingResponses.get(lowerSender);
       const nextChunk = chunks.shift();
 
       bot.chat(`/aibook ${sender} ${nextChunk}`);
 
-      if (chunks.length > 0) {
-        setTimeout(() => {
-          bot.chat(`${sender} theb nkamel?`);
-        }, 1000);
-      } else {
+      if (chunks.length === 0) {
         pendingResponses.delete(lowerSender);
       }
       return;
@@ -138,50 +141,57 @@ function createBot() {
     lastRequestTime = now;
 
     console.log(`🎯 [طلب جديد] المرسل: "${sender}" | السؤال: "${prompt}"`);
-    
-    bot.chat(`${sender} ⏳ la7dha bark...`);
 
     try {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      responseText = responseText.replace(/\r?\n|\r/g, ' ').replace(/"/g, "'");
+      // فلترة صارمة: إزالة أي حروف عربية قد تسبب تشوهاً في كتاب ماينكرافت
+      responseText = responseText.replace(/[\u0600-\u06FF]/g, '');
+      
+      // تنظيف الأسطر والرموز المربكة
+      responseText = responseText.replace(/\r?\n/g, ' ').replace(/"/g, "'").replace(/\s+/g, ' ');
 
-      // تقسيم الإجابة الطويلة إلى أجزاء (200 حرف لكل جزء)
-      const MAX_LENGTH = 200; 
+      // تقطيع النص إلى أجزاء عند نهاية الجمل وليس وسط الكلمات
+      const MAX_CHUNK_LENGTH = 180;
       const chunks = [];
-      let words = responseText.split(' ');
-      let currentChunk = '';
+      
+      if (responseText.length <= MAX_CHUNK_LENGTH) {
+        chunks.push(responseText);
+      } else {
+        let words = responseText.split(' ');
+        let currentChunk = '';
 
-      for (let word of words) {
-        if ((currentChunk + word).length > MAX_LENGTH) {
+        for (let word of words) {
+          if ((currentChunk + ' ' + word).length > MAX_CHUNK_LENGTH) {
+            chunks.push(currentChunk.trim());
+            currentChunk = word;
+          } else {
+            currentChunk += (currentChunk ? ' ' : '') + word;
+          }
+        }
+        if (currentChunk.trim().length > 0) {
           chunks.push(currentChunk.trim());
-          currentChunk = word + ' ';
-        } else {
-          currentChunk += word + ' ';
         }
       }
-      if (currentChunk.trim().length > 0) {
-        chunks.push(currentChunk.trim());
+
+      // إضافة "Theb nkamel?" لنهاية الأجزاء الأولى إذا كان هناك بقية
+      for (let i = 0; i < chunks.length - 1; i++) {
+        chunks[i] = chunks[i] + ' ... Theb nkamel?';
       }
 
-      // إرسال الجزء الأول فقط
       const firstChunk = chunks.shift();
       bot.chat(`/aibook ${sender} ${firstChunk}`);
 
-      // إذا تبقت أجزاء أخرى، يتم حفظها وسؤال اللاعب
       if (chunks.length > 0) {
         pendingResponses.set(lowerSender, chunks);
-        setTimeout(() => {
-          bot.chat(`${sender} theb nkamel?`);
-        }, 1200);
       } else {
         pendingResponses.delete(lowerSender);
       }
 
     } catch (error) {
       console.error("❌ Gemini API Error:", error.message);
-      bot.chat(`${sender} ❌ fama mochkla sghira, 3awed.`);
+      bot.chat(`${sender} ❌ Fama mochkla sghira, 3awed jarreb.`);
     }
   });
 
