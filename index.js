@@ -90,28 +90,25 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
     - Yimna3 man3an batan ay لفظ غير محترم.
 
 11. Tasmiim Crafting Table (3x3 Layout Padded with =):
-=== CRAFT === => [X]
+    === CRAFT === => [X]
 
     ===[A][B][A]=========
 
     ===[A][A][A]=========
 
     ===[ ][A][ ]=========
-
-    
-A=5chab============
-B=7did=============X=Shield
+    A=5chab============
+    B=7did=============X=Shield
 
 12. Tasmiim Furnace / Smoker / Forge (Maw9ad Layout Padded with =):
-=== FOUREN ===    
-====[Raw-7did]========
-====[F7am]=========
-===== v 
-===== =>[Lingot-7did]
-
+    === FOUREN ===    
+    ====[Raw-7did]========
+    ====[F7am]=========
+    ===== v 
+    ===== =>[Lingot-7did]
 13. Tasmiim Smithing / Anvil (Haddada Layout Padded with =):
-=== SMITHING ===
-     ====[A]+[B]===============√=================[X]==
+    === SMITHING ===
+    ====[A]+[B]===============√=================[X]==
     ====A=Sla7--1
     ====B=Sla7--2
     ====X=M3adel
