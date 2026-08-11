@@ -70,8 +70,8 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
    - Furnace = Fouren
    - Chest = Sondou9
 
-5. Tasmiim el-Wa3jaat w el-Aalat f-el-Ktab (STRICT MAX 15 CHARS PER LINE):
-   - Kol satr LAZEM yekoun f-satr wa7dou w ma yetjawezch 15 7arf.
+5. Tasmiim el-Wa3jaat w el-Aalat f-el-Ktab (PAD WITH = TO WRAP LINES AUTOMATICALLY):
+   - Ml' el-fara8at b-3alamat (=) bech tat3adda el-kelma el-li ba3dha lel-satr el-jadid otomatikiyan f-el-ktab.
 
 6. El-Ijaaba w el-Usloub:
    - Jaweb **FA9AT** 3la shnowa se'lek el-la3eb b-di99a w i5tisar don tataffol.
@@ -89,30 +89,28 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
 10. Man3 el-kalam el-bazii2:
     - Yimna3 man3an batan ay لفظ غير محترم.
 
-11. Tasmiim Crafting Table (3x3 Layout):
-    === CRAFT ===
-    [A][B][A]
-    [A][A][A]
-    [ ][A][ ]
-    => [X]
-    A: 5chab
-    B: 7did
-    X: Shield
+11. Tasmiim Crafting Table (3x3 Layout Padded with =):
+    === CRAFT === => [X]==
+    ===[A][B][A]=========
+    ===[A][A][A]=========
+    ===[ ][A][ ]=========
+    A=5chab==============
+    B=7did=============X=Shield
 
-12. Tasmiim Furnace / Smoker / Forge (Maw9ad Layout):
-    === FOUREN ===
-    In: Raw 7did
-    Fuel: F7am
-    v
-    Out: Lingot 7did
+12. Tasmiim Furnace / Smoker / Forge (Maw9ad Layout Padded with =):
+    === FOUREN ==========
+    In: Raw 7did=========
+    Fuel: F7am===========
+    v====================
+    Out: Lingot 7did=====
 
-13. Tasmiim Smithing / Anvil (Haddada Layout):
-    === SMITHING ===
-    [A] + [B]
-    => [X]
-    A: Sla7 1
-    B: Sla7 2
-    X: M3adel
+13. Tasmiim Smithing / Anvil (Haddada Layout Padded with =):
+    === SMITHING ========
+    [A] + [B]============
+    => [X]===============
+    A: Sla7 1============
+    B: Sla7 2============
+    X: Sla7 M3adel=======
 
 14. Ma3loumat el-Server el-Kamila (Jaweb biha w9et el-so'al fa9at):
 
@@ -159,7 +157,7 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
       - Pinata Party: Tsiir otomatikiyan kol 250 Votes (/vote).
 `
   });
-  console.log("🤖 تم تفعيل الذكاء الاصطناعي مع تقنية التنسيق بالمسافات لمنع الطرد!");
+  console.log("🤖 تم تفعيل الذكاء الاصطناعي بنظام تعبئة الأسهم والرموز (=) لمنع طرد البوت!");
 } else {
   console.error("❌ لم يتم العثور على GEMINI_API_KEY في البيئة!");
 }
@@ -167,16 +165,16 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
 let lastRequestTime = 0;
 const pendingResponses = new Map();
 
-// دالة ملء الفراغات بالمسافات لتجاوز السطر تلقائياً في كتاب ماينكرافت
-function formatTextWithSpacePadding(text, lineLength = 19) {
+// دالة تعبئة الأسطر برمز = للنزول للسطر التالي في كتاب ماينكرافت آلياً بدون \n
+function formatTextWithEqualPadding(text, lineLength = 21) {
   return text
-    .split('\n')
+    .split(/\r?\n/)
     .map(line => {
       const trimmed = line.trim();
-      if (trimmed.length === 0) return '';
-      // إذا كان السطر أقصر من سعة سطر الكتاب، نكمله بالمسافات لينزل السطر بعده تلقائياً
+      if (!trimmed) return '';
+      // إذا كان السطر أقل من عرض الكتاب، نكمله برمز = لينتقل للسطر التالي
       if (trimmed.length < lineLength) {
-        return trimmed.padEnd(lineLength, ' ');
+        return trimmed.padEnd(lineLength, '=');
       }
       return trimmed;
     })
@@ -232,7 +230,7 @@ function createBot() {
       const chunks = pendingResponses.get(lowerSender);
       const nextChunk = chunks.shift();
 
-      const formattedChunk = formatTextWithSpacePadding(nextChunk);
+      const formattedChunk = formatTextWithEqualPadding(nextChunk);
       bot.chat(`/aibook ${sender} ${formattedChunk}`);
 
       if (chunks.length === 0) {
@@ -289,9 +287,9 @@ function createBot() {
       }
 
       const firstChunk = chunks.shift();
-      const formattedFirstChunk = formatTextWithSpacePadding(firstChunk);
+      const formattedFirstChunk = formatTextWithEqualPadding(firstChunk);
 
-      // إرسال الأمر بشكل آمن بملء المسافات بدون \n
+      // إرسال النص مفرداً بدون رموز \n مع التعبئة بـ =
       bot.chat(`/aibook ${sender} ${formattedFirstChunk}`);
 
       if (chunks.length > 0) {
