@@ -3,6 +3,11 @@ const mineflayer = require('mineflayer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 
+// منع توقف البوت عند حدوث أخطاء مفاجئة
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ خطأ غير متوقع تم احتواؤه:', err.message);
+});
+
 let settings = {};
 try {
   settings = JSON.parse(fs.readFileSync('./settings.json', 'utf8'));
@@ -65,8 +70,8 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
    - Furnace = Fouren
    - Chest = Sondou9
 
-5. Tasmiim el-Wa3jaat w el-Aalat f-el-Ktab (STRICT MAX 15 CHARS PER LINE WITH NEWLINES):
-   - Kol satr LAZEM yekoun f-satr wa7dou. Yimna3 ktabat akthar men 15 7arf f-el-satr.
+5. Tasmiim el-Wa3jaat w el-Aalat f-el-Ktab (STRICT MAX 15 CHARS PER LINE):
+   - Kol satr LAZEM yekoun f-satr wa7dou w ma yetjawezch 15 7arf.
 
 6. El-Ijaaba w el-Usloub:
    - Jaweb **FA9AT** 3la shnowa se'lek el-la3eb b-di99a w i5tisar don tataffol.
@@ -154,13 +159,29 @@ Enta m3allem w morshed dhaki w mo9tarim dakhel server Minecraft (Survival / SMP 
       - Pinata Party: Tsiir otomatikiyan kol 250 Votes (/vote).
 `
   });
-  console.log("🤖 تم تفعيل الذكاء الاصطناعي بنجاح مع الترقيم المنظم من 1 إلى 14 وتنسيق الكتب!");
+  console.log("🤖 تم تفعيل الذكاء الاصطناعي مع تقنية التنسيق بالمسافات لمنع الطرد!");
 } else {
   console.error("❌ لم يتم العثور على GEMINI_API_KEY في البيئة!");
 }
 
 let lastRequestTime = 0;
 const pendingResponses = new Map();
+
+// دالة ملء الفراغات بالمسافات لتجاوز السطر تلقائياً في كتاب ماينكرافت
+function formatTextWithSpacePadding(text, lineLength = 19) {
+  return text
+    .split('\n')
+    .map(line => {
+      const trimmed = line.trim();
+      if (trimmed.length === 0) return '';
+      // إذا كان السطر أقصر من سعة سطر الكتاب، نكمله بالمسافات لينزل السطر بعده تلقائياً
+      if (trimmed.length < lineLength) {
+        return trimmed.padEnd(lineLength, ' ');
+      }
+      return trimmed;
+    })
+    .join('');
+}
 
 function createBot() {
   const bot = mineflayer.createBot({
@@ -211,7 +232,8 @@ function createBot() {
       const chunks = pendingResponses.get(lowerSender);
       const nextChunk = chunks.shift();
 
-      bot.chat(`/aibook ${sender} ${nextChunk}`);
+      const formattedChunk = formatTextWithSpacePadding(nextChunk);
+      bot.chat(`/aibook ${sender} ${formattedChunk}`);
 
       if (chunks.length === 0) {
         pendingResponses.delete(lowerSender);
@@ -235,13 +257,10 @@ function createBot() {
       const result = await aiModel.generateContent(prompt);
       let responseText = result.response.text().trim();
 
-      // تصفية أية حروف عربية حمايةً للتنسيق
+      // تصفية أية حروف عربية
       responseText = responseText.replace(/[\u0600-\u06FF]/g, '');
-      
-      // تنظيف الرموز والتأكد من إبقاء الأسطر \n لكي لا يضيع التنسيق
-      responseText = responseText.replace(/"/g, "'").replace(/[ \t]+/g, ' ').trim();
 
-      // تقطيع النص عند طول مناسب دون كسر الكلمات مع الحفاظ على الأسطر
+      // تقطيع النص للأجزاء المناسبة
       const MAX_CHUNK_LENGTH = 180;
       const chunks = [];
       
@@ -270,7 +289,10 @@ function createBot() {
       }
 
       const firstChunk = chunks.shift();
-      bot.chat(`/aibook ${sender} ${firstChunk}`);
+      const formattedFirstChunk = formatTextWithSpacePadding(firstChunk);
+
+      // إرسال الأمر بشكل آمن بملء المسافات بدون \n
+      bot.chat(`/aibook ${sender} ${formattedFirstChunk}`);
 
       if (chunks.length > 0) {
         pendingResponses.set(lowerSender, chunks);
